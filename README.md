@@ -1,59 +1,52 @@
-# UiDistribuidoraGas
+# Distribuidora de Gas · Toma de pedidos (PWA offline)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.2.
+Prueba técnica de frontend: vista de **toma de pedidos** y vista de **listado de pedidos**, con funcionamiento **offline** usando IndexedDB (Dexie.js) y Angular Service Worker.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+- Angular 22 (standalone components, signals, zoneless)
+- Tailwind CSS v4 (paleta amarillo suave personalizada `brand`)
+- Dexie.js v4 (IndexedDB)
+- @angular/service-worker (PWA, cache offline)
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Instalación y ejecución
 
 ```bash
-ng generate component component-name
+npm install
+npm start          # desarrollo en http://localhost:4200 (SW deshabilitado en dev)
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+### Probar el modo offline
+
+El service worker solo se habilita en build de producción:
 
 ```bash
-ng generate --help
+npm run build
+npx http-server dist/ui-distribuidora-gas/browser -p 8080
 ```
 
-## Building
+Abrir http://localhost:8080, navegar una vez y luego cortar la red (DevTools → Network → Offline). La app sigue funcionando: los pedidos se guardan en IndexedDB.
 
-To build the project run:
+## Estructura
 
-```bash
-ng build
+```
+src/app/
+├── models/                 # Interfaces según el esquema de BD
+│   ├── cliente.model.ts
+│   ├── producto.model.ts
+│   └── pedido.model.ts     # Pedido, DetallePedido, EstadoPedido, PedidoCompleto
+├── services/
+│   ├── db.service.ts       # Dexie: esquema, tablas y seed de datos de prueba
+│   ├── catalogo.service.ts # Productos y clientes activos
+│   └── pedido.service.ts   # Crear pedido (transacción), listar con relaciones, cambiar estado
+└── pages/
+    ├── toma-pedido/        # Vista de toma de pedidos
+    └── pedidos/            # Vista de listado de pedidos
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Notas
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- Se quitó el SSR del scaffold original: para una PWA offline con IndexedDB no aporta y complica el service worker.
+- El diagrama de `detalles_pedidos` no mostraba la FK al producto; se agregó `id_producto` (necesaria para reconstruir el pedido).
+- `estado_id` es uuid: se creó la tabla `estados_pedido` con estados fijos (Pendiente, En camino, Entregado, Cancelado) sembrados en el seed.
+- Datos de ejemplo (productos y clientes) se cargan automáticamente la primera vez que se abre la app (`on('populate')` de Dexie).
