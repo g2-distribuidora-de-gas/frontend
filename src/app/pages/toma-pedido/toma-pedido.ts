@@ -63,17 +63,54 @@ export class TomaPedido {
     });
   }
 
-  protected setCantidad(p: Producto, valor: number | string | null): void {
-  const n = Math.max(0, Math.floor(Number(valor) || 0));
-  this.cantidades.update((c) => ({ ...c, [p.id!]: n }));
+  
+  protected bloquearNoEnteros(e: KeyboardEvent): void {
+    if (['.', ',', 'e', 'E', '-', '+'].includes(e.key)) e.preventDefault();
   }
 
-  protected bloquearNoEnteros(e: KeyboardEvent): void {
-  if (['.', ',', 'e', 'E', '-', '+'].includes(e.key)) e.preventDefault();
+  protected setCantidad(p: Producto, valor: number | string | null): void {
+    const n = Math.max(0, Math.floor(Number(valor) || 0));
+    this.cantidades.update((c) => ({ ...c, [p.id!]: n }));
   }
 
   protected seleccionarCliente(c: Cliente): void {
     this.clienteId.set(this.clienteId() === c.id ? null : c.id!);
+  }
+
+  
+  protected mostrarFormCliente = signal(false);
+  protected nuevoCliente = signal({ nombre: '', apellido: '', telefono: '', direccion: '', email: '' });
+
+  protected puedeGuardarCliente = computed(() => {
+    const n = this.nuevoCliente();
+    return n.nombre.trim().length > 0 && n.apellido.trim().length > 0;
+  });
+
+  protected campoCliente(campo: 'nombre' | 'apellido' | 'telefono' | 'direccion' | 'email', valor: string): void {
+    this.nuevoCliente.update((n) => ({ ...n, [campo]: valor }));
+  }
+
+  protected async guardarCliente(): Promise<void> {
+    if (!this.puedeGuardarCliente()) return;
+    const n = this.nuevoCliente();
+    const id = await this.catalogo.crearCliente({
+      nombre: n.nombre.trim(),
+      apellido: n.apellido.trim(),
+      telefono: Number(n.telefono) || 0,
+      direccion: n.direccion.trim(),
+      email: n.email.trim(),
+    });
+    this.clientes.set(await this.catalogo.getClientesActivos());
+    this.clienteId.set(id);
+    this.nuevoCliente.set({ nombre: '', apellido: '', telefono: '', direccion: '', email: '' });
+    this.mostrarFormCliente.set(false);
+  }
+
+  protected async eliminarCliente(c: Cliente): Promise<void> {
+    if (!confirm(`¿Eliminar a ${c.nombre} ${c.apellido}?`)) return;
+    await this.catalogo.eliminarCliente(c.id!);
+    if (this.clienteId() === c.id) this.clienteId.set(null);
+    this.clientes.set(await this.catalogo.getClientesActivos());
   }
 
   protected async confirmar(): Promise<void> {

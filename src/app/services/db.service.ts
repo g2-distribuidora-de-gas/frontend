@@ -29,7 +29,7 @@ export class DbService extends Dexie {
     this.on('populate', () => this.seed());
   }
 
-
+ 
   private async seed(): Promise<void> {
     const now = new Date().toISOString();
     await this.estados_pedido.bulkAdd(ESTADOS);
