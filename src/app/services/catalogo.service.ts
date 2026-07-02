@@ -18,7 +18,6 @@ export class CatalogoService {
     return this.db.clientes.add({ ...datos, created_at: new Date().toISOString(), activo: true });
   }
 
-  
   async eliminarCliente(id: number): Promise<void> {
     const tienePedidos = await this.db.pedidos.where('id_cliente').equals(id).count();
     if (tienePedidos > 0) {

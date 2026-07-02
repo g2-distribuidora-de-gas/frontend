@@ -5,6 +5,7 @@ import { DecimalPipe } from '@angular/common';
 import { Cliente, Producto } from '../../models';
 import { CatalogoService } from '../../services/catalogo.service';
 import { PedidoService } from '../../services/pedido.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-toma-pedido',
@@ -15,6 +16,7 @@ export class TomaPedido {
   private catalogo = inject(CatalogoService);
   private pedidoSrv = inject(PedidoService);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   protected clientes = signal<Cliente[]>([]);
   protected productos = signal<Producto[]>([]);
@@ -63,7 +65,6 @@ export class TomaPedido {
     });
   }
 
-  
   protected bloquearNoEnteros(e: KeyboardEvent): void {
     if (['.', ',', 'e', 'E', '-', '+'].includes(e.key)) e.preventDefault();
   }
@@ -77,21 +78,46 @@ export class TomaPedido {
     this.clienteId.set(this.clienteId() === c.id ? null : c.id!);
   }
 
-  
+
   protected mostrarFormCliente = signal(false);
   protected nuevoCliente = signal({ nombre: '', apellido: '', telefono: '', direccion: '', email: '' });
 
-  protected puedeGuardarCliente = computed(() => {
-    const n = this.nuevoCliente();
-    return n.nombre.trim().length > 0 && n.apellido.trim().length > 0;
-  });
-
   protected campoCliente(campo: 'nombre' | 'apellido' | 'telefono' | 'direccion' | 'email', valor: string): void {
+    if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 10);
     this.nuevoCliente.update((n) => ({ ...n, [campo]: valor }));
   }
 
+  private validarNuevoCliente(): boolean {
+    const n = this.nuevoCliente();
+    if (!n.nombre.trim() || !n.apellido.trim() || !n.telefono.trim() || !n.email.trim() || !n.direccion.trim()) {
+      this.toast.error('Completá todos los campos del cliente.');
+      return false;
+    }
+    if (!/^\d{8,10}$/.test(n.telefono.trim())) {
+      this.toast.error('El teléfono debe tener solo números, entre 8 y 10 dígitos.');
+      return false;
+    }
+    if (!n.email.includes('@') || !n.email.includes('.com')) {
+      this.toast.error('El email debe contener "@" y ".com".');
+      return false;
+    }
+    return true;
+  }
+  protected soloDigitos(e: KeyboardEvent): void {
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !/\d/.test(e.key)) e.preventDefault();
+  }
+  protected pegarSoloDigitos(e: ClipboardEvent): void {
+  e.preventDefault();
+  const pegado = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
+  const input = e.target as HTMLInputElement;
+  const nuevo = (input.value + pegado).slice(0, 10);
+  input.value = nuevo;
+  this.campoCliente('telefono', nuevo);
+  }
+
+
   protected async guardarCliente(): Promise<void> {
-    if (!this.puedeGuardarCliente()) return;
+    if (!this.validarNuevoCliente()) return;
     const n = this.nuevoCliente();
     const id = await this.catalogo.crearCliente({
       nombre: n.nombre.trim(),
@@ -101,9 +127,10 @@ export class TomaPedido {
       email: n.email.trim(),
     });
     this.clientes.set(await this.catalogo.getClientesActivos());
-    this.clienteId.set(id);
+    this.clienteId.set(id); 
     this.nuevoCliente.set({ nombre: '', apellido: '', telefono: '', direccion: '', email: '' });
     this.mostrarFormCliente.set(false);
+    this.toast.exito('Cliente guardado.');
   }
 
   protected async eliminarCliente(c: Cliente): Promise<void> {
@@ -111,6 +138,7 @@ export class TomaPedido {
     await this.catalogo.eliminarCliente(c.id!);
     if (this.clienteId() === c.id) this.clienteId.set(null);
     this.clientes.set(await this.catalogo.getClientesActivos());
+    this.toast.exito('Cliente eliminado.');
   }
 
   protected async confirmar(): Promise<void> {

@@ -1,5 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ToastService } from './services/toast.service';
 
 @Component({
   selector: 'app-root',
@@ -8,6 +9,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 })
 export class App {
   protected readonly online = signal(navigator.onLine);
+  protected readonly toast = inject(ToastService);
 
   constructor() {
     window.addEventListener('online', () => this.online.set(true));

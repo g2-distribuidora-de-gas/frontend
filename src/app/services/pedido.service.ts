@@ -16,7 +16,7 @@ export class PedidoService {
     return this.db.estados_pedido.toArray();
   }
 
-  /** Crea el pedido y sus detalles en una transacción */
+  
   async crearPedido(idCliente: number, items: ItemNuevoPedido[], observaciones: string): Promise<number> {
     const now = new Date().toISOString();
     const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
@@ -24,7 +24,7 @@ export class PedidoService {
       const idPedido = await this.db.pedidos.add({
         created_at: now,
         id_cliente: idCliente,
-        estado_id: ESTADOS[0].id, // Pendiente
+        estado_id: ESTADOS[0].id, 
         total,
         observaciones,
       });
