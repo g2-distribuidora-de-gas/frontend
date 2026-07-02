@@ -1,48 +1,62 @@
 import { Injectable } from '@angular/core';
 import Dexie, { Table } from 'dexie';
-import { Cliente, DetallePedido, EstadoPedido, Pedido, Producto } from '../models';
+import { DetallePedido, Pedido, type EstadoPedido } from '../models/pedido.model';
+import { Garrafa } from '../models/garrafa.model';
+import { Usuario } from '../models/usuario.model';
 
-export const ESTADOS: EstadoPedido[] = [
-  { id: '11111111-1111-4111-8111-111111111111', nombre: 'Pendiente' },
-  { id: '22222222-2222-4222-8222-222222222222', nombre: 'En camino' },
-  { id: '33333333-3333-4333-8333-333333333333', nombre: 'Entregado' },
-  { id: '44444444-4444-4444-8444-444444444444', nombre: 'Cancelado' },
+/** Información de estado para la UI */
+export interface EstadoInfo {
+  id: EstadoPedido;
+  nombre: string;
+}
+
+export const ESTADOS: EstadoInfo[] = [
+  { id: 'PENDIENTE', nombre: 'Pendiente' },
+  { id: 'EN_PROCESO', nombre: 'En proceso' },
+  { id: 'ENTREGADO', nombre: 'Entregado' },
+  { id: 'CANCELADO', nombre: 'Cancelado' },
 ];
 
 @Injectable({ providedIn: 'root' })
 export class DbService extends Dexie {
-  clientes!: Table<Cliente, number>;
-  productos!: Table<Producto, number>;
+  usuarios!: Table<Usuario, number>;
+  garrafas!: Table<Garrafa, number>;
   pedidos!: Table<Pedido, number>;
   detalles_pedidos!: Table<DetallePedido, number>;
-  estados_pedido!: Table<EstadoPedido, string>;
 
   constructor() {
     super('distribuidora-gas');
-    this.version(1).stores({
-      clientes: '++id, nombre, apellido, activo',
-      productos: '++id, nombre, tipo, activo',
-      pedidos: '++id, id_cliente, estado_id, created_at',
-      detalles_pedidos: '++id, id_pedido, id_producto',
-      estados_pedido: 'id, nombre',
+
+    // Version 2: modelos alineados con el backend
+    this.version(2).stores({
+      usuarios: '++id, nombre, apellido, dni, activo',
+      garrafas: '++id, tipo, activo',
+      pedidos: '++id, uuidOffline, usuarioId, estado, created_at, sincronizado',
+      detalles_pedidos: '++id, pedidoUuid, garrafaId',
+      // Eliminar tablas viejas de v1
+      clientes: null,
+      productos: null,
+      estados_pedido: null,
+    }).upgrade(async (tx) => {
+      // Limpiar datos viejos si existían — la v2 se re-seedea
+      console.log('[DbService] Migrando de v1 a v2...');
     });
+
     this.on('populate', () => this.seed());
   }
 
   private async seed(): Promise<void> {
     const now = new Date().toISOString();
-    await this.estados_pedido.bulkAdd(ESTADOS);
-    await this.productos.bulkAdd([
-      { created_at: now, nombre: 'Garrafa 10 kg', capacidad_kg: 10, precio_actual: 12500, activo: true, tipo: 'garrafa' },
-      { created_at: now, nombre: 'Garrafa 15 kg', capacidad_kg: 15, precio_actual: 17800, activo: true, tipo: 'garrafa' },
-      { created_at: now, nombre: 'Garrafa 30 kg', capacidad_kg: 30, precio_actual: 33500, activo: true, tipo: 'garrafa' },
-      { created_at: now, nombre: 'Cilindro 45 kg', capacidad_kg: 45, precio_actual: 47900, activo: true, tipo: 'cilindro' },
+    await this.garrafas.bulkAdd([
+      { created_at: now, tipo: 'GARRAFA_10KG', capacidadKg: 10, precio: 12500, stockDisponible: 50, activo: true },
+      { created_at: now, tipo: 'GARRAFA_15KG', capacidadKg: 15, precio: 17800, stockDisponible: 40, activo: true },
+      { created_at: now, tipo: 'GARRAFA_45KG', capacidadKg: 45, precio: 47900, stockDisponible: 20, activo: true },
     ]);
-    await this.clientes.bulkAdd([
-      { created_at: now, nombre: 'María', apellido: 'González', telefono: 3874112233, email: 'maria.gonzalez@mail.com', activo: true, direccion: 'Av. Belgrano 1250' },
-      { created_at: now, nombre: 'Juan', apellido: 'Pérez', telefono: 3874556677, email: 'juan.perez@mail.com', activo: true, direccion: 'Calle San Martín 480' },
-      { created_at: now, nombre: 'Rosario', apellido: 'Fernández', telefono: 3875889900, email: 'rosario.f@mail.com', activo: true, direccion: 'B° El Carmen, Mza 4 Casa 12' },
-      { created_at: now, nombre: 'Carlos', apellido: 'Aguirre', telefono: 3876223344, email: 'c.aguirre@mail.com', activo: true, direccion: 'Ruta 9 km 1580' },
+    await this.usuarios.bulkAdd([
+      { created_at: now, nombre: 'María', apellido: 'González', dni: '30123456', telefono: '3874112233', direccion: 'Av. Belgrano 1250', activo: true },
+      { created_at: now, nombre: 'Juan', apellido: 'Pérez', dni: '28987654', telefono: '3874556677', direccion: 'Calle San Martín 480', activo: true },
+      { created_at: now, nombre: 'Rosario', apellido: 'Fernández', dni: '35456789', telefono: '3875889900', direccion: 'B° El Carmen, Mza 4 Casa 12', activo: true },
+      { created_at: now, nombre: 'Carlos', apellido: 'Aguirre', dni: '32112233', telefono: '3876223344', direccion: 'Ruta 9 km 1580', activo: true },
     ]);
   }
 }

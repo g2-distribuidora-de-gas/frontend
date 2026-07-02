@@ -2,8 +2,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { EstadoPedido, PedidoCompleto } from '../../models';
+import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models';
+import { nombreGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
+import { EstadoInfo } from '../../services/db.service';
 
 @Component({
   selector: 'app-pedidos',
@@ -14,25 +16,27 @@ export class Pedidos {
   private pedidoSrv = inject(PedidoService);
 
   protected pedidos = signal<PedidoCompleto[]>([]);
-  protected estados = signal<EstadoPedido[]>([]);
+  protected estados: EstadoInfo[] = this.pedidoSrv.getEstados();
   protected filtroEstado = signal<string>('todos');
   protected busqueda = signal('');
   protected expandido = signal<number | null>(null);
   protected cargando = signal(true);
 
+  protected nombreGarrafa = nombreGarrafa;
+  protected estadoLabels = ESTADO_LABELS;
+
   protected filtrados = computed(() => {
     const estado = this.filtroEstado();
     const q = this.busqueda().toLowerCase().trim();
     return this.pedidos().filter((p) => {
-      if (estado !== 'todos' && p.estado_id !== estado) return false;
+      if (estado !== 'todos' && p.estado !== estado) return false;
       if (!q) return true;
-      const cliente = p.cliente ? `${p.cliente.nombre} ${p.cliente.apellido} ${p.cliente.direccion}` : '';
-      return `#${p.id} ${cliente} ${p.observaciones}`.toLowerCase().includes(q);
+      const usuario = p.usuario ? `${p.usuario.nombre} ${p.usuario.apellido} ${p.usuario.direccion}` : '';
+      return `#${p.id} ${usuario} ${p.observaciones}`.toLowerCase().includes(q);
     });
   });
 
   constructor() {
-    this.pedidoSrv.getEstados().then((e) => this.estados.set(e));
     this.cargar();
   }
 
@@ -46,17 +50,17 @@ export class Pedidos {
     this.expandido.set(this.expandido() === id ? null : id);
   }
 
-  protected async cambiarEstado(pedido: PedidoCompleto, estadoId: string): Promise<void> {
-    await this.pedidoSrv.cambiarEstado(pedido.id!, estadoId);
+  protected async cambiarEstado(pedido: PedidoCompleto, estado: EstadoPedido): Promise<void> {
+    await this.pedidoSrv.cambiarEstado(pedido.id!, estado);
     await this.cargar();
   }
 
-  protected claseEstado(nombre?: string): string {
-    switch (nombre) {
-      case 'Pendiente': return 'bg-brand-100 text-brand-800 border-brand-300';
-      case 'En camino': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Entregado': return 'bg-green-50 text-green-700 border-green-200';
-      case 'Cancelado': return 'bg-red-50 text-red-600 border-red-200';
+  protected claseEstado(estado?: EstadoPedido): string {
+    switch (estado) {
+      case 'PENDIENTE': return 'bg-brand-100 text-brand-800 border-brand-300';
+      case 'EN_PROCESO': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'ENTREGADO': return 'bg-green-50 text-green-700 border-green-200';
+      case 'CANCELADO': return 'bg-red-50 text-red-600 border-red-200';
       default: return 'bg-gray-50 text-gray-600 border-gray-200';
     }
   }

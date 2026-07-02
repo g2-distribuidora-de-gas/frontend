@@ -1,7 +1,7 @@
 <div class="space-y-6">
   <div>
     <h1 class="text-2xl font-bold tracking-tight text-brand-900">Nuevo pedido</h1>
-    <p class="text-sm text-brand-700/70">Seleccioná el cliente, las garrafas y confirmá.</p>
+    <p class="text-sm text-brand-700/70">Seleccioná el usuario, las garrafas y confirmá.</p>
   </div>
 
   @if (exito(); as id) {
@@ -20,59 +20,63 @@
         <div class="mb-3 flex items-center justify-between">
           <h2 class="flex items-center gap-2 font-semibold text-brand-900">
             <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
-            Cliente
+            Usuario
           </h2>
           <button
-            (click)="mostrarFormCliente.set(!mostrarFormCliente())"
+            (click)="mostrarFormUsuario.set(!mostrarFormUsuario())"
             class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
-          >{{ mostrarFormCliente() ? 'Cancelar' : '+ Nuevo cliente' }}</button>
+          >{{ mostrarFormUsuario() ? 'Cancelar' : '+ Nuevo usuario' }}</button>
         </div>
 
-        @if (mostrarFormCliente()) {
+        @if (mostrarFormUsuario()) {
           <div class="mb-3 grid gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3 sm:grid-cols-2">
             <input
               type="text"
               placeholder="Nombre *"
-              [ngModel]="nuevoCliente().nombre"
-              (ngModelChange)="campoCliente('nombre', $event)"
+              [ngModel]="nuevoUsuario().nombre"
+              (ngModelChange)="campoUsuario('nombre', $event)"
               class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
             />
             <input
               type="text"
               placeholder="Apellido *"
-              [ngModel]="nuevoCliente().apellido"
-              (ngModelChange)="campoCliente('apellido', $event)"
+              [ngModel]="nuevoUsuario().apellido"
+              (ngModelChange)="campoUsuario('apellido', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <input
+              type="text"
+              placeholder="DNI *"
+              maxlength="10"
+              inputmode="numeric"
+              [ngModel]="nuevoUsuario().dni"
+              (keydown)="soloDigitos($event)"
+              (paste)="pegarSoloDigitos($event, 'dni')"
+              (ngModelChange)="campoUsuario('dni', $event)"
               class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
             />
             <input
               type="tel"
               placeholder="Teléfono *"
-              maxlength="10"
+              maxlength="15"
               inputmode="numeric"
-              [ngModel]="nuevoCliente().telefono"
+              [ngModel]="nuevoUsuario().telefono"
               (keydown)="soloDigitos($event)"
-              (paste)="pegarSoloDigitos($event)"
-              (ngModelChange)="campoCliente('telefono', $event)"
-              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
-            />
-            <input
-              type="email"
-              placeholder="Email *"
-              [ngModel]="nuevoCliente().email"
-              (ngModelChange)="campoCliente('email', $event)"
+              (paste)="pegarSoloDigitos($event, 'telefono')"
+              (ngModelChange)="campoUsuario('telefono', $event)"
               class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
             />
             <input
               type="text"
               placeholder="Dirección *"
-              [ngModel]="nuevoCliente().direccion"
-              (ngModelChange)="campoCliente('direccion', $event)"
+              [ngModel]="nuevoUsuario().direccion"
+              (ngModelChange)="campoUsuario('direccion', $event)"
               class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 sm:col-span-2"
             />
             <button
-              (click)="guardarCliente()"
+              (click)="guardarUsuario()"
               class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 sm:col-span-2"
-            >Guardar cliente</button>
+            >Guardar usuario</button>
           </div>
         }
 
@@ -80,27 +84,27 @@
           type="search"
           [ngModel]="busqueda()"
           (ngModelChange)="busqueda.set($event)"
-          placeholder="Buscar por nombre o dirección…"
+          placeholder="Buscar por nombre, DNI o dirección…"
           class="mb-3 w-full rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
         />
         <ul class="max-h-56 space-y-2 overflow-y-auto pr-1">
-          @for (c of clientesFiltrados(); track c.id) {
+          @for (u of usuariosFiltrados(); track u.id) {
             <li class="flex items-stretch gap-2">
               <button
-                (click)="seleccionarCliente(c)"
+                (click)="seleccionarUsuario(u)"
                 class="min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-left transition-colors"
-                [class]="clienteId() === c.id
+                [class]="usuarioId() === u.id
                   ? 'border-brand-500 bg-brand-100 ring-1 ring-brand-400'
                   : 'border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50'"
               >
-                <span class="block truncate text-sm font-semibold">{{ c.apellido }}, {{ c.nombre }}</span>
-                <span class="block truncate text-xs text-brand-700/70">{{ c.direccion }} · {{ c.telefono }}</span>
+                <span class="block truncate text-sm font-semibold">{{ u.apellido }}, {{ u.nombre }}</span>
+                <span class="block truncate text-xs text-brand-700/70">DNI: {{ u.dni }} · {{ u.direccion }} · {{ u.telefono }}</span>
               </button>
               <button
-                (click)="eliminarCliente(c)"
+                (click)="eliminarUsuario(u)"
                 class="grid w-10 shrink-0 place-items-center rounded-xl border border-brand-100 text-brand-700/40 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-                [attr.aria-label]="'Eliminar a ' + c.nombre + ' ' + c.apellido"
-                title="Eliminar cliente"
+                [attr.aria-label]="'Eliminar a ' + u.nombre + ' ' + u.apellido"
+                title="Eliminar usuario"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -108,7 +112,7 @@
               </button>
             </li>
           } @empty {
-            <li class="py-3 text-center text-sm text-brand-700/60">No se encontraron clientes.</li>
+            <li class="py-3 text-center text-sm text-brand-700/60">No se encontraron usuarios.</li>
           }
         </ul>
       </section>
@@ -116,26 +120,29 @@
       <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 class="mb-3 flex items-center gap-2 font-semibold text-brand-900">
           <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
-          Productos
+          Garrafas
         </h2>
         <div class="grid gap-3 sm:grid-cols-2">
-          @for (p of productos(); track p.id) {
+          @for (g of garrafas(); track g.id) {
             <div
               class="rounded-xl border p-4 transition-colors"
-              [class]="cantidadDe(p) > 0 ? 'border-brand-400 bg-brand-50' : 'border-brand-100'"
+              [class]="cantidadDe(g) > 0 ? 'border-brand-400 bg-brand-50' : 'border-brand-100'"
             >
               <div class="mb-1 flex items-start justify-between gap-2">
                 <div>
-                  <p class="font-semibold leading-tight">{{ p.nombre }}</p>
-                  <p class="text-xs uppercase tracking-wide text-brand-700/60">{{ p.tipo }} · {{ p.capacidad_kg }} kg</p>
+                  <p class="font-semibold leading-tight">{{ nombreGarrafa(g.tipo) }}</p>
+                  <p class="text-xs uppercase tracking-wide text-brand-700/60">{{ g.tipo }} · {{ g.capacidadKg }} kg</p>
                 </div>
+                @if (g.stockDisponible !== undefined) {
+                  <span class="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">Stock: {{ g.stockDisponible }}</span>
+                }
               </div>
-              <p class="mb-3 text-lg font-bold text-brand-800">$ {{ p.precio_actual | number: '1.0-0' }}</p>
+              <p class="mb-3 text-lg font-bold text-brand-800">$ {{ g.precio | number: '1.0-0' }}</p>
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <button
-                    (click)="ajustar(p, -1)"
-                    [disabled]="cantidadDe(p) === 0"
+                    (click)="ajustar(g, -1)"
+                    [disabled]="cantidadDe(g) === 0"
                     class="grid h-9 w-9 place-items-center rounded-full border border-brand-300 text-lg font-bold text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-30"
                     aria-label="Quitar uno"
                   >−</button>
@@ -145,19 +152,19 @@
                     step="1"
                     inputmode="numeric"
                     (keydown)="bloquearNoEnteros($event)"
-                    [ngModel]="cantidadDe(p)"
-                    (ngModelChange)="setCantidad(p, $event)"
-                    [attr.aria-label]="'Cantidad de ' + p.nombre"
+                    [ngModel]="cantidadDe(g)"
+                    (ngModelChange)="setCantidad(g, $event)"
+                    [attr.aria-label]="'Cantidad de ' + nombreGarrafa(g.tipo)"
                     class="w-14 rounded-lg border border-brand-200 bg-white py-1 text-center text-lg font-bold tabular-nums outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <button
-                    (click)="ajustar(p, 1)"
+                    (click)="ajustar(g, 1)"
                     class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-lg font-bold text-white transition-colors hover:bg-brand-600"
                     aria-label="Agregar uno"
                   >+</button>
                 </div>
-                @if (cantidadDe(p) > 0) {
-                  <span class="text-sm font-semibold text-brand-800">$ {{ cantidadDe(p) * p.precio_actual | number: '1.0-0' }}</span>
+                @if (cantidadDe(g) > 0) {
+                  <span class="text-sm font-semibold text-brand-800">$ {{ cantidadDe(g) * g.precio | number: '1.0-0' }}</span>
                 }
               </div>
             </div>
@@ -184,26 +191,26 @@
       <div class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-20">
         <h2 class="mb-3 font-semibold text-brand-900">Resumen</h2>
 
-        @if (clienteSeleccionado(); as c) {
+        @if (usuarioSeleccionado(); as u) {
           <p class="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm">
-            <span class="font-semibold">{{ c.apellido }}, {{ c.nombre }}</span>
-            <span class="block text-xs text-brand-700/70">{{ c.direccion }}</span>
+            <span class="font-semibold">{{ u.apellido }}, {{ u.nombre }}</span>
+            <span class="block text-xs text-brand-700/70">DNI: {{ u.dni }} · {{ u.direccion }}</span>
           </p>
         } @else {
-          <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-2 text-sm text-brand-700/60">Sin cliente seleccionado</p>
+          <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-2 text-sm text-brand-700/60">Sin usuario seleccionado</p>
         }
 
         @if (items().length > 0) {
           <ul class="mb-3 divide-y divide-brand-100 text-sm">
-            @for (i of items(); track i.producto.id) {
+            @for (i of items(); track i.garrafa.id) {
               <li class="flex items-center justify-between py-2">
-                <span>{{ i.cantidad }} × {{ i.producto.nombre }}</span>
+                <span>{{ i.cantidad }} × {{ nombreGarrafa(i.garrafa.tipo) }}</span>
                 <span class="font-medium tabular-nums">$ {{ i.subtotal | number: '1.0-0' }}</span>
               </li>
             }
           </ul>
         } @else {
-          <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-4 text-center text-sm text-brand-700/60">Agregá productos al pedido</p>
+          <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-4 text-center text-sm text-brand-700/60">Agregá garrafas al pedido</p>
         }
 
         <div class="mb-4 flex items-center justify-between border-t border-brand-200 pt-3">

@@ -2,10 +2,12 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
-import { Cliente, Producto } from '../../models';
+import { Garrafa, nombreGarrafa } from '../../models/garrafa.model';
+import { Usuario } from '../../models/usuario.model';
 import { CatalogoService } from '../../services/catalogo.service';
 import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
+import { SyncService } from '../../services/sync.service';
 
 @Component({
   selector: 'app-toma-pedido',
@@ -17,51 +19,54 @@ export class TomaPedido {
   private pedidoSrv = inject(PedidoService);
   private router = inject(Router);
   private toast = inject(ToastService);
+  private syncService = inject(SyncService);
 
-  protected clientes = signal<Cliente[]>([]);
-  protected productos = signal<Producto[]>([]);
-  protected clienteId = signal<number | null>(null);
+  protected usuarios = signal<Usuario[]>([]);
+  protected garrafas = signal<Garrafa[]>([]);
+  protected usuarioId = signal<number | null>(null);
   protected busqueda = signal('');
   protected observaciones = signal('');
   protected cantidades = signal<Record<number, number>>({});
   protected guardando = signal(false);
   protected exito = signal<number | null>(null);
 
-  protected clientesFiltrados = computed(() => {
+  protected usuariosFiltrados = computed(() => {
     const q = this.busqueda().toLowerCase().trim();
-    if (!q) return this.clientes();
-    return this.clientes().filter((c) =>
-      `${c.nombre} ${c.apellido} ${c.direccion}`.toLowerCase().includes(q),
+    if (!q) return this.usuarios();
+    return this.usuarios().filter((u) =>
+      `${u.nombre} ${u.apellido} ${u.direccion} ${u.dni}`.toLowerCase().includes(q),
     );
   });
 
-  protected clienteSeleccionado = computed(
-    () => this.clientes().find((c) => c.id === this.clienteId()) ?? null,
+  protected usuarioSeleccionado = computed(
+    () => this.usuarios().find((u) => u.id === this.usuarioId()) ?? null,
   );
 
   protected items = computed(() => {
     const cant = this.cantidades();
-    return this.productos()
-      .filter((p) => (cant[p.id!] ?? 0) > 0)
-      .map((p) => ({ producto: p, cantidad: cant[p.id!], subtotal: cant[p.id!] * p.precio_actual }));
+    return this.garrafas()
+      .filter((g) => (cant[g.id!] ?? 0) > 0)
+      .map((g) => ({ garrafa: g, cantidad: cant[g.id!], subtotal: cant[g.id!] * g.precio }));
   });
 
   protected total = computed(() => this.items().reduce((acc, i) => acc + i.subtotal, 0));
-  protected puedeConfirmar = computed(() => !!this.clienteId() && this.items().length > 0 && !this.guardando());
+  protected puedeConfirmar = computed(() => !!this.usuarioId() && this.items().length > 0 && !this.guardando());
+
+  protected nombreGarrafa = nombreGarrafa;
 
   constructor() {
-    this.catalogo.getClientesActivos().then((c) => this.clientes.set(c));
-    this.catalogo.getProductosActivos().then((p) => this.productos.set(p));
+    this.catalogo.getUsuariosActivos().then((u) => this.usuarios.set(u));
+    this.catalogo.getGarrafasActivas().then((g) => this.garrafas.set(g));
   }
 
-  protected cantidadDe(p: Producto): number {
-    return this.cantidades()[p.id!] ?? 0;
+  protected cantidadDe(g: Garrafa): number {
+    return this.cantidades()[g.id!] ?? 0;
   }
 
-  protected ajustar(p: Producto, delta: number): void {
+  protected ajustar(g: Garrafa, delta: number): void {
     this.cantidades.update((c) => {
-      const nueva = Math.max(0, (c[p.id!] ?? 0) + delta);
-      return { ...c, [p.id!]: nueva };
+      const nueva = Math.max(0, (c[g.id!] ?? 0) + delta);
+      return { ...c, [g.id!]: nueva };
     });
   }
 
@@ -69,96 +74,107 @@ export class TomaPedido {
     if (['.', ',', 'e', 'E', '-', '+'].includes(e.key)) e.preventDefault();
   }
 
-  protected setCantidad(p: Producto, valor: number | string | null): void {
+  protected setCantidad(g: Garrafa, valor: number | string | null): void {
     const n = Math.max(0, Math.floor(Number(valor) || 0));
-    this.cantidades.update((c) => ({ ...c, [p.id!]: n }));
+    this.cantidades.update((c) => ({ ...c, [g.id!]: n }));
   }
 
-  protected seleccionarCliente(c: Cliente): void {
-    this.clienteId.set(this.clienteId() === c.id ? null : c.id!);
+  protected seleccionarUsuario(u: Usuario): void {
+    this.usuarioId.set(this.usuarioId() === u.id ? null : u.id!);
   }
 
+  // ─── Formulario nuevo usuario ───
 
-  protected mostrarFormCliente = signal(false);
-  protected nuevoCliente = signal({ nombre: '', apellido: '', telefono: '', direccion: '', email: '' });
+  protected mostrarFormUsuario = signal(false);
+  protected nuevoUsuario = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
 
-  protected campoCliente(campo: 'nombre' | 'apellido' | 'telefono' | 'direccion' | 'email', valor: string): void {
-    if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 10);
-    this.nuevoCliente.update((n) => ({ ...n, [campo]: valor }));
+  protected campoUsuario(campo: 'nombre' | 'apellido' | 'dni' | 'telefono' | 'direccion', valor: string): void {
+    if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 15);
+    if (campo === 'dni') valor = valor.replace(/\D/g, '').slice(0, 10);
+    this.nuevoUsuario.update((n) => ({ ...n, [campo]: valor }));
   }
 
-  private validarNuevoCliente(): boolean {
-    const n = this.nuevoCliente();
-    if (!n.nombre.trim() || !n.apellido.trim() || !n.telefono.trim() || !n.email.trim() || !n.direccion.trim()) {
-      this.toast.error('Completá todos los campos del cliente.');
+  private validarNuevoUsuario(): boolean {
+    const n = this.nuevoUsuario();
+    if (!n.nombre.trim() || !n.apellido.trim() || !n.dni.trim() || !n.telefono.trim() || !n.direccion.trim()) {
+      this.toast.error('Completá todos los campos del usuario.');
       return false;
     }
-    if (!/^\d{8,10}$/.test(n.telefono.trim())) {
-      this.toast.error('El teléfono debe tener solo números, entre 8 y 10 dígitos.');
-      return false;
-    }
-    if (!n.email.includes('@') || !n.email.includes('.com')) {
-      this.toast.error('El email debe contener "@" y ".com".');
+    if (!/^\d{7,10}$/.test(n.dni.trim())) {
+      this.toast.error('El DNI debe tener entre 7 y 10 dígitos.');
       return false;
     }
     return true;
   }
+
   protected soloDigitos(e: KeyboardEvent): void {
-  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !/\d/.test(e.key)) e.preventDefault();
-  }
-  protected pegarSoloDigitos(e: ClipboardEvent): void {
-  e.preventDefault();
-  const pegado = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
-  const input = e.target as HTMLInputElement;
-  const nuevo = (input.value + pegado).slice(0, 10);
-  input.value = nuevo;
-  this.campoCliente('telefono', nuevo);
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !/\d/.test(e.key)) e.preventDefault();
   }
 
-
-  protected async guardarCliente(): Promise<void> {
-    if (!this.validarNuevoCliente()) return;
-    const n = this.nuevoCliente();
-    const id = await this.catalogo.crearCliente({
-      nombre: n.nombre.trim(),
-      apellido: n.apellido.trim(),
-      telefono: Number(n.telefono) || 0,
-      direccion: n.direccion.trim(),
-      email: n.email.trim(),
-    });
-    this.clientes.set(await this.catalogo.getClientesActivos());
-    this.clienteId.set(id); 
-    this.nuevoCliente.set({ nombre: '', apellido: '', telefono: '', direccion: '', email: '' });
-    this.mostrarFormCliente.set(false);
-    this.toast.exito('Cliente guardado.');
+  protected pegarSoloDigitos(e: ClipboardEvent, campo: 'telefono' | 'dni'): void {
+    e.preventDefault();
+    const pegado = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
+    const input = e.target as HTMLInputElement;
+    const maxLen = campo === 'dni' ? 10 : 15;
+    const nuevo = (input.value + pegado).slice(0, maxLen);
+    input.value = nuevo;
+    this.campoUsuario(campo, nuevo);
   }
 
-  protected async eliminarCliente(c: Cliente): Promise<void> {
-    if (!confirm(`¿Eliminar a ${c.nombre} ${c.apellido}?`)) return;
-    await this.catalogo.eliminarCliente(c.id!);
-    if (this.clienteId() === c.id) this.clienteId.set(null);
-    this.clientes.set(await this.catalogo.getClientesActivos());
-    this.toast.exito('Cliente eliminado.');
+  protected async guardarUsuario(): Promise<void> {
+    if (!this.validarNuevoUsuario()) return;
+    const n = this.nuevoUsuario();
+    try {
+      const id = await this.catalogo.crearUsuario({
+        nombre: n.nombre.trim(),
+        apellido: n.apellido.trim(),
+        dni: n.dni.trim(),
+        telefono: n.telefono.trim(),
+        direccion: n.direccion.trim(),
+      });
+      this.usuarios.set(await this.catalogo.getUsuariosActivos());
+      this.usuarioId.set(id);
+      this.nuevoUsuario.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+      this.mostrarFormUsuario.set(false);
+      this.toast.exito('Usuario guardado.');
+    } catch (e: any) {
+      this.toast.error(e.message || 'Error al guardar el usuario.');
+    }
+  }
+
+  protected async eliminarUsuario(u: Usuario): Promise<void> {
+    if (!confirm(`¿Eliminar a ${u.nombre} ${u.apellido}?`)) return;
+    await this.catalogo.eliminarUsuario(u.id!);
+    if (this.usuarioId() === u.id) this.usuarioId.set(null);
+    this.usuarios.set(await this.catalogo.getUsuariosActivos());
+    this.toast.exito('Usuario eliminado.');
   }
 
   protected async confirmar(): Promise<void> {
     if (!this.puedeConfirmar()) return;
     this.guardando.set(true);
     try {
+      const usuario = this.usuarioSeleccionado()!;
       const id = await this.pedidoSrv.crearPedido(
-        this.clienteId()!,
+        this.usuarioId()!,
+        usuario.direccion,
         this.items().map((i) => ({
-          id_producto: i.producto.id!,
+          garrafaId: i.garrafa.id!,
           cantidad: i.cantidad,
-          precio_unitario: i.producto.precio_actual,
+          precioUnitario: i.garrafa.precio,
         })),
         this.observaciones().trim(),
       );
       this.exito.set(id);
       this.cantidades.set({});
       this.observaciones.set('');
-      this.clienteId.set(null);
+      this.usuarioId.set(null);
       this.busqueda.set('');
+
+      // Intentar sincronizar inmediatamente si hay conexión
+      if (navigator.onLine) {
+        this.syncService.sincronizar();
+      }
     } finally {
       this.guardando.set(false);
     }

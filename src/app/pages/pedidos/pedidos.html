@@ -15,7 +15,7 @@
       type="search"
       [ngModel]="busqueda()"
       (ngModelChange)="busqueda.set($event)"
-      placeholder="Buscar por cliente, dirección o N°…"
+      placeholder="Buscar por usuario, dirección o N°…"
       class="w-full rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200 sm:max-w-xs"
     />
     <div class="flex flex-wrap gap-2">
@@ -24,7 +24,7 @@
         class="rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
         [class]="filtroEstado() === 'todos' ? 'border-brand-500 bg-brand-500 text-white' : 'border-brand-200 bg-white text-brand-700 hover:bg-brand-50'"
       >Todos</button>
-      @for (e of estados(); track e.id) {
+      @for (e of estados; track e.id) {
         <button
           (click)="filtroEstado.set(e.id)"
           class="rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
@@ -40,7 +40,7 @@
   } @else if (filtrados().length === 0) {
     <div class="rounded-2xl border border-dashed border-brand-300 bg-white/60 py-14 text-center">
       <p class="mt-2 font-medium text-brand-800">No hay pedidos para mostrar</p>
-      <p class="text-sm text-brand-700/60">Cargá el primero desde “Nuevo pedido”.</p>
+      <p class="text-sm text-brand-700/60">Cargá el primero desde "Nuevo pedido".</p>
     </div>
   } @else {
     <ul class="space-y-3">
@@ -50,16 +50,21 @@
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span class="text-sm font-bold text-brand-800">#{{ p.id }}</span>
               <span class="min-w-0 flex-1 truncate text-sm font-semibold">
-                @if (p.cliente; as c) { {{ c.apellido }}, {{ c.nombre }} } @else { Cliente desconocido }
+                @if (p.usuario; as u) { {{ u.apellido }}, {{ u.nombre }} } @else { Usuario desconocido }
               </span>
-              <span class="rounded-full border px-2.5 py-0.5 text-xs font-medium" [class]="claseEstado(p.estado?.nombre)">
-                {{ p.estado?.nombre ?? '—' }}
+              <span class="rounded-full border px-2.5 py-0.5 text-xs font-medium" [class]="claseEstado(p.estado)">
+                {{ estadoLabels[p.estado] ?? '—' }}
               </span>
+              @if (p.sincronizado) {
+                <span class="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700" title="Sincronizado con el servidor">✓ Sync</span>
+              } @else {
+                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700" title="Pendiente de sincronizar">⏳ Local</span>
+              }
               <span class="text-sm font-bold tabular-nums text-brand-800">$ {{ p.total | number: '1.0-0' }}</span>
             </div>
             <p class="mt-1 text-xs text-brand-700/60">
               {{ p.created_at | date: 'dd/MM/yyyy HH:mm' }}
-              @if (p.cliente?.direccion) { · {{ p.cliente?.direccion }} }
+              @if (p.direccionEntrega) { · {{ p.direccionEntrega }} }
             </p>
           </button>
 
@@ -68,8 +73,8 @@
               <ul class="divide-y divide-brand-100 text-sm">
                 @for (d of p.detalles; track d.id) {
                   <li class="flex items-center justify-between py-1.5">
-                    <span>{{ d.cantidad }} × {{ d.producto?.nombre ?? 'Producto #' + d.id_producto }}</span>
-                    <span class="tabular-nums">$ {{ d.subtotal | number: '1.0-0' }} <span class="text-xs text-brand-700/50">(u. $ {{ d.precio_unitario | number: '1.0-0' }})</span></span>
+                    <span>{{ d.cantidad }} × {{ d.garrafa ? nombreGarrafa(d.garrafa.tipo) : 'Garrafa #' + d.garrafaId }}</span>
+                    <span class="tabular-nums">$ {{ d.subtotal | number: '1.0-0' }} <span class="text-xs text-brand-700/50">(u. $ {{ d.precioUnitario | number: '1.0-0' }})</span></span>
                   </li>
                 }
               </ul>
@@ -80,11 +85,11 @@
                 <label class="text-xs font-medium text-brand-700/70" [for]="'estado-' + p.id">Cambiar estado:</label>
                 <select
                   [id]="'estado-' + p.id"
-                  [ngModel]="p.estado_id"
+                  [ngModel]="p.estado"
                   (ngModelChange)="cambiarEstado(p, $event)"
                   class="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
                 >
-                  @for (e of estados(); track e.id) {
+                  @for (e of estados; track e.id) {
                     <option [value]="e.id">{{ e.nombre }}</option>
                   }
                 </select>
