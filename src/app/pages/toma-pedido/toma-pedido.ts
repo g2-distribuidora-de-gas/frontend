@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
-import { Garrafa, nombreGarrafa } from '../../models/garrafa.model';
+import { Garrafa, TipoGarrafa, nombreGarrafa } from '../../models/garrafa.model';
 import { Usuario } from '../../models/usuario.model';
 import { CatalogoService } from '../../services/catalogo.service';
 import { PedidoService } from '../../services/pedido.service';
@@ -22,6 +22,8 @@ export class TomaPedido {
   private syncService = inject(SyncService);
 
   protected usuarios = signal<Usuario[]>([]);
+  protected usuariosInactivos = signal<Usuario[]>([]);
+  protected mostrarInactivos = signal(false);
   protected garrafas = signal<Garrafa[]>([]);
   protected usuarioId = signal<number | null>(null);
   protected busqueda = signal('');
@@ -55,8 +57,13 @@ export class TomaPedido {
   protected nombreGarrafa = nombreGarrafa;
 
   constructor() {
-    this.catalogo.getUsuariosActivos().then((u) => this.usuarios.set(u));
+    this.recargarUsuarios();
     this.catalogo.getGarrafasActivas().then((g) => this.garrafas.set(g));
+  }
+
+  private async recargarUsuarios(): Promise<void> {
+    this.usuarios.set(await this.catalogo.getUsuariosActivos());
+    this.usuariosInactivos.set(await this.catalogo.getUsuariosInactivos());
   }
 
   protected cantidadDe(g: Garrafa): number {
@@ -89,8 +96,9 @@ export class TomaPedido {
   protected nuevoUsuario = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
 
   protected campoUsuario(campo: 'nombre' | 'apellido' | 'dni' | 'telefono' | 'direccion', valor: string): void {
-    if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 15);
+    if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 10);
     if (campo === 'dni') valor = valor.replace(/\D/g, '').slice(0, 10);
+    if (campo === 'nombre' || campo === 'apellido') valor = valor.replace(/\d/g, '');
     this.nuevoUsuario.update((n) => ({ ...n, [campo]: valor }));
   }
 
@@ -100,8 +108,16 @@ export class TomaPedido {
       this.toast.error('Completá todos los campos del usuario.');
       return false;
     }
+    if (/\d/.test(n.nombre) || /\d/.test(n.apellido)) {
+      this.toast.error('El nombre y el apellido no pueden contener números.');
+      return false;
+    }
     if (!/^\d{7,10}$/.test(n.dni.trim())) {
       this.toast.error('El DNI debe tener entre 7 y 10 dígitos.');
+      return false;
+    }
+    if (!/^\d{8,10}$/.test(n.telefono.trim())) {
+      this.toast.error('El teléfono debe tener entre 8 y 10 dígitos.');
       return false;
     }
     return true;
@@ -111,11 +127,15 @@ export class TomaPedido {
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !/\d/.test(e.key)) e.preventDefault();
   }
 
+  protected sinDigitos(e: KeyboardEvent): void {
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && /\d/.test(e.key)) e.preventDefault();
+  }
+
   protected pegarSoloDigitos(e: ClipboardEvent, campo: 'telefono' | 'dni'): void {
     e.preventDefault();
     const pegado = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
     const input = e.target as HTMLInputElement;
-    const maxLen = campo === 'dni' ? 10 : 15;
+    const maxLen = 10;
     const nuevo = (input.value + pegado).slice(0, maxLen);
     input.value = nuevo;
     this.campoUsuario(campo, nuevo);
@@ -132,7 +152,7 @@ export class TomaPedido {
         telefono: n.telefono.trim(),
         direccion: n.direccion.trim(),
       });
-      this.usuarios.set(await this.catalogo.getUsuariosActivos());
+      await this.recargarUsuarios();
       this.usuarioId.set(id);
       this.nuevoUsuario.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
       this.mostrarFormUsuario.set(false);
@@ -142,12 +162,81 @@ export class TomaPedido {
     }
   }
 
-  protected async eliminarUsuario(u: Usuario): Promise<void> {
-    if (!confirm(`¿Eliminar a ${u.nombre} ${u.apellido}?`)) return;
-    await this.catalogo.eliminarUsuario(u.id!);
-    if (this.usuarioId() === u.id) this.usuarioId.set(null);
-    this.usuarios.set(await this.catalogo.getUsuariosActivos());
-    this.toast.exito('Usuario eliminado.');
+  protected async darBajaUsuario(u: Usuario): Promise<void> {
+    if (!confirm(`¿Dar de baja a ${u.nombre} ${u.apellido}? Podrás reactivarlo más adelante.`)) return;
+    try {
+      await this.catalogo.darBajaUsuario(u.id!);
+      if (this.usuarioId() === u.id) this.usuarioId.set(null);
+      await this.recargarUsuarios();
+      this.toast.exito('Usuario dado de baja.');
+    } catch (e: any) {
+      this.toast.error(e.message || 'Error al dar de baja el usuario.');
+    }
+  }
+
+  protected async reactivarUsuario(u: Usuario): Promise<void> {
+    try {
+      await this.catalogo.reactivarUsuario(u.id!);
+      await this.recargarUsuarios();
+      this.toast.exito(`${u.nombre} ${u.apellido} reactivado.`);
+    } catch (e: any) {
+      this.toast.error(e.message || 'Error al reactivar el usuario.');
+    }
+  }
+
+  // ─── Formulario nueva garrafa ───
+
+  protected mostrarFormGarrafa = signal(false);
+  protected nuevaGarrafa = signal<{ tipo: TipoGarrafa | ''; precio: number | null; stock: number | null }>({
+    tipo: '',
+    precio: null,
+    stock: null,
+  });
+
+  private static readonly CAPACIDADES: Record<TipoGarrafa, number> = {
+    GARRAFA_10KG: 10,
+    GARRAFA_15KG: 15,
+    GARRAFA_45KG: 45,
+  };
+
+  /** Tipos que todavía no existen (el backend exige tipo único) */
+  protected tiposDisponibles = computed(() => {
+    const existentes = new Set(this.garrafas().map((g) => g.tipo));
+    return (Object.keys(TomaPedido.CAPACIDADES) as TipoGarrafa[]).filter((t) => !existentes.has(t));
+  });
+
+  protected campoGarrafa(campo: 'tipo' | 'precio' | 'stock', valor: any): void {
+    this.nuevaGarrafa.update((n) => ({ ...n, [campo]: valor }));
+  }
+
+  protected async guardarGarrafa(): Promise<void> {
+    const n = this.nuevaGarrafa();
+    if (!n.tipo) {
+      this.toast.error('Seleccioná el tipo de garrafa.');
+      return;
+    }
+    if (!n.precio || n.precio <= 0) {
+      this.toast.error('El precio debe ser mayor a 0.');
+      return;
+    }
+    if (n.stock === null || n.stock < 0 || !Number.isInteger(Number(n.stock))) {
+      this.toast.error('El stock debe ser un número entero mayor o igual a 0.');
+      return;
+    }
+    try {
+      await this.catalogo.crearGarrafa({
+        tipo: n.tipo,
+        capacidadKg: TomaPedido.CAPACIDADES[n.tipo],
+        precio: n.precio,
+        stockDisponible: n.stock,
+      });
+      this.garrafas.set(await this.catalogo.getGarrafasActivas());
+      this.nuevaGarrafa.set({ tipo: '', precio: null, stock: null });
+      this.mostrarFormGarrafa.set(false);
+      this.toast.exito('Garrafa creada.');
+    } catch (e: any) {
+      this.toast.error(e.message || 'Error al crear la garrafa.');
+    }
   }
 
   protected async confirmar(): Promise<void> {
