@@ -37,6 +37,25 @@ export class CatalogoService {
     return local.id;
   }
 
+  async actualizarGarrafa(id: string, datos: GarrafaRequest): Promise<void> {
+    if (!navigator.onLine) {
+      throw new Error('No se pueden actualizar garrafas sin conexión a internet.');
+    }
+    const doc = await this.rxDb.garrafas.findOne(id).exec();
+    if (!doc) throw new Error('Garrafa no encontrada localmente.');
+
+    const resp = await this.apiGarrafa.actualizar(Number(id), datos);
+    
+    await doc.patch({
+      tipo: resp.tipo,
+      capacidadKg: resp.capacidadKg,
+      precio: resp.precio,
+      stockDisponible: resp.stockDisponible,
+      activo: resp.activo,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
   async getUsuariosActivos(): Promise<Usuario[]> {
     const docs = await this.rxDb.usuarios
       .find({ selector: { activo: true } })
@@ -105,14 +124,7 @@ export class CatalogoService {
     if (!doc) throw new Error('Usuario no encontrado.');
 
     try {
-      await this.apiUsuario.actualizar(Number(id), {
-        nombre: doc.nombre,
-        apellido: doc.apellido,
-        dni: doc.dni,
-        telefono: doc.telefono || undefined,
-        direccion: doc.direccion || undefined,
-        activo: true,
-      });
+      await this.apiUsuario.reactivar(Number(id));
     } catch (e) {
       console.error('Error reactivando usuario en backend', e);
       throw new Error('No se pudo reactivar el usuario en el servidor.');
