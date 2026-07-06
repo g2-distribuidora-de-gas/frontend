@@ -8,6 +8,7 @@ import { CatalogoService } from '../../services/catalogo.service';
 import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
 import { ReplicationService } from '../../services/replication.service';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-toma-pedido',
@@ -24,7 +25,8 @@ export class TomaPedido {
   protected usuarios = signal<Usuario[]>([]);
   protected usuariosInactivos = signal<Usuario[]>([]);
   protected mostrarInactivos = signal(false);
-  protected garrafas = signal<Garrafa[]>([]);
+  // Lista reactiva: se actualiza sola cuando cambia el stock en RxDB
+  protected garrafas = toSignal(this.catalogo.garrafasActivas$(), { initialValue: [] as Garrafa[] });
   protected usuarioId = signal<string | null>(null);
   protected busqueda = signal('');
   protected observaciones = signal('');
@@ -58,7 +60,6 @@ export class TomaPedido {
 
   constructor() {
     this.recargarUsuarios();
-    this.catalogo.getGarrafasActivas().then((g) => this.garrafas.set(g));
   }
 
   private async recargarUsuarios(): Promise<void> {
@@ -70,11 +71,23 @@ export class TomaPedido {
     return this.cantidades()[g.id] ?? 0;
   }
 
+  protected stockDe(g: Garrafa): number {
+    return g.stockDisponible ?? Infinity;
+  }
+
+  protected sinStock(g: Garrafa): boolean {
+    return this.stockDe(g) <= 0;
+  }
+
   protected ajustar(g: Garrafa, delta: number): void {
+    const tope = this.stockDe(g);
     this.cantidades.update((c) => {
-      const nueva = Math.max(0, (c[g.id] ?? 0) + delta);
+      const nueva = Math.min(tope, Math.max(0, (c[g.id] ?? 0) + delta));
       return { ...c, [g.id]: nueva };
     });
+    if (delta > 0 && this.cantidadDe(g) >= tope) {
+      this.toast.error(`Sin stock suficiente de ${nombreGarrafa(g.tipo)}.`);
+    }
   }
 
   protected bloquearNoEnteros(e: KeyboardEvent): void {
@@ -82,7 +95,8 @@ export class TomaPedido {
   }
 
   protected setCantidad(g: Garrafa, valor: number | string | null): void {
-    const n = Math.max(0, Math.floor(Number(valor) || 0));
+    const tope = this.stockDe(g);
+    const n = Math.min(tope, Math.max(0, Math.floor(Number(valor) || 0)));
     this.cantidades.update((c) => ({ ...c, [g.id]: n }));
   }
 
@@ -230,7 +244,6 @@ export class TomaPedido {
         precio: n.precio,
         stockDisponible: n.stock,
       });
-      this.garrafas.set(await this.catalogo.getGarrafasActivas());
       this.nuevaGarrafa.set({ tipo: '', precio: null, stock: null });
       this.mostrarFormGarrafa.set(false);
       this.toast.exito('Garrafa creada.');
@@ -260,7 +273,7 @@ export class TomaPedido {
       this.usuarioId.set(null);
       this.busqueda.set('');
 
-      // La replicación se encarga de sincronizar automáticamente
+   
       if (navigator.onLine) {
         this.replication.resincronizar();
       }

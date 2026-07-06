@@ -4,6 +4,8 @@ import { Usuario } from '../models/usuario.model';
 import { RxDatabaseService } from './rx-database.service';
 import { ApiUsuarioService } from './api-usuario.service';
 import { ApiGarrafaService } from './api-garrafa.service';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class CatalogoService {
@@ -11,12 +13,11 @@ export class CatalogoService {
   private apiUsuario = inject(ApiUsuarioService);
   private apiGarrafa = inject(ApiGarrafaService);
 
-  async getGarrafasActivas(): Promise<Garrafa[]> {
-    const docs = await this.rxDb.garrafas
-      .find({ selector: { activo: true } })
-      .exec();
-    return docs.map((d) => d.toJSON() as unknown as Garrafa);
-  }
+  garrafasActivas$(): Observable<Garrafa[]> {
+  return this.rxDb.garrafas
+    .find({ selector: { activo: true } })
+    .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa)));
+}
 
   async crearGarrafa(datos: GarrafaRequest): Promise<string> {
     if (!navigator.onLine) {
