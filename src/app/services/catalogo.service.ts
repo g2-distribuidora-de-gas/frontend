@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Garrafa, GarrafaRequest } from '../models/garrafa.model';
+import { Garrafa, GarrafaRequest, TipoGarrafa } from '../models/garrafa.model';
 import { Usuario } from '../models/usuario.model';
 import { RxDatabaseService } from './rx-database.service';
 import { ApiUsuarioService } from './api-usuario.service';
@@ -14,10 +14,10 @@ export class CatalogoService {
   private apiGarrafa = inject(ApiGarrafaService);
 
   garrafasActivas$(): Observable<Garrafa[]> {
-  return this.rxDb.garrafas
-    .find({ selector: { activo: true } })
-    .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa)));
-}
+    return this.rxDb.garrafas
+      .find({ selector: { activo: true } })
+      .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa)));
+  }
 
   async crearGarrafa(datos: GarrafaRequest): Promise<string> {
     if (!navigator.onLine) {
@@ -37,18 +37,36 @@ export class CatalogoService {
     return local.id;
   }
 
+  
+  async reponerStock(id: string, cantidadAgregar: number): Promise<void> {
+    if (!navigator.onLine) {
+      throw new Error('No se puede reponer stock sin conexión.');
+    }
+    const doc = await this.rxDb.garrafas.findOne(id).exec();
+    if (!doc) throw new Error('Garrafa no encontrada.');
+
+    const nuevoStock = (doc.stockDisponible ?? 0) + cantidadAgregar;
+
+    await this.apiGarrafa.actualizar(Number(id), {
+      tipo: doc.tipo as TipoGarrafa,
+      capacidadKg: doc.capacidadKg,
+      precio: doc.precio,
+      stockDisponible: nuevoStock,
+      activo: doc.activo,
+    });
+
+    
+    await doc.patch({ stockDisponible: nuevoStock, updatedAt: new Date().toISOString() });
+  }
+
   async getUsuariosActivos(): Promise<Usuario[]> {
-    const docs = await this.rxDb.usuarios
-      .find({ selector: { activo: true } })
-      .exec();
+    const docs = await this.rxDb.usuarios.find({ selector: { activo: true } }).exec();
     const usuarios = docs.map((d) => d.toJSON() as unknown as Usuario);
     return usuarios.sort((a, b) => a.apellido.localeCompare(b.apellido));
   }
 
   async getUsuariosInactivos(): Promise<Usuario[]> {
-    const docs = await this.rxDb.usuarios
-      .find({ selector: { activo: false } })
-      .exec();
+    const docs = await this.rxDb.usuarios.find({ selector: { activo: false } }).exec();
     const usuarios = docs.map((d) => d.toJSON() as unknown as Usuario);
     return usuarios.sort((a, b) => a.apellido.localeCompare(b.apellido));
   }
