@@ -151,13 +151,85 @@
             <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
             Garrafas
           </h2>
-          @if (tiposDisponibles().length > 0) {
-            <button
-              (click)="mostrarFormGarrafa.set(!mostrarFormGarrafa())"
-              class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
-            >{{ mostrarFormGarrafa() ? 'Cancelar' : '+ Nueva garrafa' }}</button>
-          }
+          <div class="flex items-center gap-2">
+            @if (garrafas().length > 0) {
+              <button
+                (click)="toggleFormEditar()"
+                class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+              >{{ mostrarFormEditar() ? 'Cancelar' : 'Editar' }}</button>
+            }
+            @if (tiposDisponibles().length > 0) {
+              <button
+                (click)="mostrarFormGarrafa.set(!mostrarFormGarrafa())"
+                class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+              >{{ mostrarFormGarrafa() ? 'Cancelar' : '+ Nueva garrafa' }}</button>
+            }
+          </div>
         </div>
+
+        @if (mostrarFormEditar()) {
+          <div class="mb-3 grid gap-3 rounded-xl border border-brand-200 bg-brand-50 p-3">
+            <select
+              [ngModel]="editarId()"
+              (ngModelChange)="seleccionarEditar($event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+            >
+              <option [ngValue]="null" disabled>Elegí una garrafa para editar…</option>
+              @for (g of garrafas(); track g.id) {
+                <option [ngValue]="g.id">{{ nombreGarrafa(g.tipo) }} — $ {{ g.precio | number: '1.0-0' }} · stock {{ g.stockDisponible }}</option>
+              }
+            </select>
+
+            @if (garrafaEnEdicion(); as g) {
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block text-sm">
+                  <span class="mb-1 block font-medium text-brand-700">Precio</span>
+                  <input
+                    type="number"
+                    min="1"
+                    inputmode="numeric"
+                    [ngModel]="editPrecio()"
+                    (ngModelChange)="editPrecio.set($event)"
+                    class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+                  />
+                </label>
+
+                <div class="text-sm">
+                  <span class="mb-1 block font-medium text-brand-700">Stock</span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      (click)="ajustarEditStock(-1)"
+                      [disabled]="editStock() === 0"
+                      class="grid h-9 w-9 place-items-center rounded-full border border-brand-300 text-lg font-bold text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-30"
+                      aria-label="Quitar stock"
+                    >−</button>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputmode="numeric"
+                      (keydown)="bloquearNoEnteros($event)"
+                      [ngModel]="editStock()"
+                      (ngModelChange)="setEditStock($event)"
+                      class="w-20 rounded-lg border border-brand-200 bg-white py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-brand-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      (click)="ajustarEditStock(1)"
+                      class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-lg font-bold text-white transition-colors hover:bg-brand-600"
+                      aria-label="Agregar stock"
+                    >+</button>
+                  </div>
+                  <span class="mt-1 block text-xs text-brand-700/60">Actual: {{ g.stockDisponible }}</span>
+                </div>
+              </div>
+
+              <button
+                (click)="guardarEdicion()"
+                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
+              >Guardar cambios</button>
+            }
+          </div>
+        }
 
         @if (mostrarFormGarrafa()) {
           <div class="mb-3 grid gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3 sm:grid-cols-3">
@@ -218,39 +290,6 @@
                 }
               </div>
               <p class="mb-3 text-lg font-bold text-brand-800">$ {{ g.precio | number: '1.0-0' }}</p>
-
-              @if (sinStock(g)) {
-                <div class="mb-3">
-                  @if (reponiendoId() === g.id) {
-                    <div class="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="Cantidad"
-                        inputmode="numeric"
-                        (keydown)="bloquearNoEnteros($event)"
-                        [ngModel]="stockAReponer()"
-                        (ngModelChange)="stockAReponer.set($event)"
-                        class="w-24 rounded-lg border border-brand-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400"
-                      />
-                      <button
-                        (click)="reponerStock(g)"
-                        class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
-                      >✓</button>
-                      <button
-                        (click)="abrirReponer(g)"
-                        class="rounded-lg border border-brand-300 px-3 py-1.5 text-sm text-brand-700 transition-colors hover:bg-brand-100"
-                      >X</button>
-                    </div>
-                  } @else {
-                    <button
-                      (click)="abrirReponer(g)"
-                      class="rounded-lg border border-green-300 px-3 py-1.5 text-sm font-semibold text-green-700 transition-colors hover:bg-green-50"
-                    >+ Reponer stock</button>
-                  }
-                </div>
-              }
 
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">

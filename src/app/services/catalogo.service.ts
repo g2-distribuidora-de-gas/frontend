@@ -36,7 +36,29 @@ export class CatalogoService {
     await this.rxDb.garrafas.upsert(local);
     return local.id;
   }
+  async editarGarrafa(
+    id: string,
+    cambios: { precio?: number; stockDisponible?: number },
+  ): Promise<void> {
+    if (!navigator.onLine) {
+      throw new Error('No se puede editar la garrafa sin conexión.');
+    }
+    const doc = await this.rxDb.garrafas.findOne(id).exec();
+    if (!doc) throw new Error('Garrafa no encontrada.');
 
+    const precio = cambios.precio ?? doc.precio;
+    const stockDisponible = cambios.stockDisponible ?? doc.stockDisponible ?? 0;
+
+    await this.apiGarrafa.actualizar(Number(id), {
+      tipo: doc.tipo as TipoGarrafa,
+      capacidadKg: doc.capacidadKg,
+      precio,
+      stockDisponible,
+      activo: doc.activo,
+    });
+
+    await doc.patch({ precio, stockDisponible, updatedAt: new Date().toISOString() });
+  }
 
   async reponerStock(id: string, cantidadAgregar: number): Promise<void> {
     if (!navigator.onLine) {
@@ -54,7 +76,6 @@ export class CatalogoService {
       stockDisponible: nuevoStock,
       activo: doc.activo,
     });
-
 
     await doc.patch({ stockDisponible: nuevoStock, updatedAt: new Date().toISOString() });
   }

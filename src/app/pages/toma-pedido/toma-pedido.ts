@@ -25,7 +25,7 @@ export class TomaPedido {
   protected usuarios = signal<Usuario[]>([]);
   protected usuariosInactivos = signal<Usuario[]>([]);
   protected mostrarInactivos = signal(false);
-  // Lista reactiva: se actualiza sola cuando cambia el stock en RxDB
+  // Lista reactiva: se actualiza sola cuando cambia el stock/precio en RxDB
   protected garrafas = toSignal(this.catalogo.garrafasActivas$(), { initialValue: [] as Garrafa[] });
   protected usuarioId = signal<string | null>(null);
   protected busqueda = signal('');
@@ -94,6 +94,7 @@ export class TomaPedido {
     if (['.', ',', 'e', 'E', '-', '+'].includes(e.key)) e.preventDefault();
   }
 
+  /** Toma el valor tipeado en el input, lo clampea al stock y lo refleja en la caja */
   protected setCantidad(g: Garrafa, el: HTMLInputElement): void {
     const tope = this.stockDe(g);
     const n = Math.min(tope, Math.max(0, Math.floor(Number(el.value) || 0)));
@@ -253,29 +254,69 @@ export class TomaPedido {
     }
   }
 
-  // ─── Reponer stock ───
+  // ─── Editar garrafa (precio / stock) ───
 
-  protected reponiendoId = signal<string | null>(null);
-  protected stockAReponer = signal<number | null>(null);
+  protected mostrarFormEditar = signal(false);
+  protected editarId = signal<string | null>(null);
+  protected editPrecio = signal<number | null>(null);
+  protected editStock = signal<number>(0);
 
-  protected abrirReponer(g: Garrafa): void {
-    this.reponiendoId.set(this.reponiendoId() === g.id ? null : g.id);
-    this.stockAReponer.set(null);
+  protected garrafaEnEdicion = computed(
+    () => this.garrafas().find((g) => g.id === this.editarId()) ?? null,
+  );
+
+  protected toggleFormEditar(): void {
+    const abrir = !this.mostrarFormEditar();
+    this.mostrarFormEditar.set(abrir);
+    // al abrir edición cerramos el form de creación para no encimarlos
+    if (abrir) this.mostrarFormGarrafa.set(false);
+    if (!abrir) this.resetEdicion();
   }
 
-  protected async reponerStock(g: Garrafa): Promise<void> {
-    const cant = this.stockAReponer();
-    if (cant === null || cant <= 0 || !Number.isInteger(Number(cant))) {
-      this.toast.error('Ingresá una cantidad entera mayor a 0.');
+  protected seleccionarEditar(id: string | null): void {
+    this.editarId.set(id);
+    const g = this.garrafas().find((x) => x.id === id);
+    this.editPrecio.set(g ? g.precio : null);
+    this.editStock.set(g ? (g.stockDisponible ?? 0) : 0);
+  }
+
+  protected ajustarEditStock(delta: number): void {
+    this.editStock.update((s) => Math.max(0, s + delta));
+  }
+
+  protected setEditStock(valor: number | string | null): void {
+    this.editStock.set(Math.max(0, Math.floor(Number(valor) || 0)));
+  }
+
+  private resetEdicion(): void {
+    this.editarId.set(null);
+    this.editPrecio.set(null);
+    this.editStock.set(0);
+  }
+
+  protected async guardarEdicion(): Promise<void> {
+    const id = this.editarId();
+    if (!id) {
+      this.toast.error('Elegí una garrafa para editar.');
+      return;
+    }
+    const precio = this.editPrecio();
+    if (!precio || precio <= 0) {
+      this.toast.error('El precio debe ser mayor a 0.');
+      return;
+    }
+    const stock = this.editStock();
+    if (stock < 0 || !Number.isInteger(Number(stock))) {
+      this.toast.error('El stock debe ser un entero mayor o igual a 0.');
       return;
     }
     try {
-      await this.catalogo.reponerStock(g.id, Number(cant));
-      this.reponiendoId.set(null);
-      this.stockAReponer.set(null);
-      this.toast.exito('Stock actualizado.');
+      await this.catalogo.editarGarrafa(id, { precio, stockDisponible: stock });
+      this.toast.exito('Garrafa actualizada.');
+      this.mostrarFormEditar.set(false);
+      this.resetEdicion();
     } catch (e: any) {
-      this.toast.error(e.message || 'Error al reponer stock.');
+      this.toast.error(e.message || 'Error al actualizar la garrafa.');
     }
   }
 
