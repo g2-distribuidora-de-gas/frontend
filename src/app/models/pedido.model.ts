@@ -12,31 +12,32 @@ export const ESTADO_LABELS: Record<EstadoPedido, string> = {
   CANCELADO: 'Cancelado',
 };
 
-/** Modelo local (Dexie) para pedido — offline-first */
+/** Detalle de pedido embebido dentro del documento Pedido */
+export interface DetallePedido {
+  garrafaId: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+/** Modelo local (RxDB) para pedido — offline-first */
 export interface Pedido {
-  id?: number;
   uuidOffline: string;
-  created_at: string;
-  usuarioId: number;
+  backendId?: number;
+  usuarioId: string;
   direccionEntrega: string;
   estado: EstadoPedido;
   total: number;
   observaciones: string;
-  /** true cuando fue sincronizado exitosamente con el backend */
   sincronizado: boolean;
-  /** ID asignado por el backend tras la sincronización */
-  backendId?: number;
+  detalles: DetallePedido[];
+  updatedAt: string;
 }
 
-/** Modelo local (Dexie) para detalle de pedido */
-export interface DetallePedido {
-  id?: number;
-  created_at: string;
-  pedidoUuid: string;
-  garrafaId: number;
-  cantidad: number;
-  precioUnitario: number;
-  subtotal: number;
+/** Modelo enriquecido para la UI — con datos resueltos de las relaciones */
+export interface PedidoCompleto extends Pedido {
+  usuario?: Usuario;
+  detallesResueltos: (DetallePedido & { garrafa?: Garrafa })[];
 }
 
 // ─── DTOs del backend ───
@@ -73,12 +74,6 @@ export interface PedidoResponse {
   createdAt: string;
   updatedAt: string;
   detalles: PedidoDetalleResponse[];
-}
-
-/** Modelo enriquecido para la UI — con datos resueltos de las relaciones */
-export interface PedidoCompleto extends Pedido {
-  usuario?: Usuario;
-  detalles: (DetallePedido & { garrafa?: Garrafa })[];
 }
 
 // ─── DTOs de sincronización ───

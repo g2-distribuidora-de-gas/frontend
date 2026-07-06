@@ -17,16 +17,16 @@ export class ApiGarrafaService {
     return firstValueFrom(this.http.post<GarrafaResponse>('/api/garrafas', request));
   }
 
-  /** Convierte un GarrafaResponse del backend a modelo local (Dexie) */
+  /** Convierte un GarrafaResponse del backend a modelo local (RxDB) */
   static toLocal(resp: GarrafaResponse): Garrafa {
     return {
-      id: resp.id,
-      created_at: new Date().toISOString(),
+      id: String(resp.id),
       tipo: resp.tipo,
       capacidadKg: resp.capacidadKg,
       precio: resp.precio,
       stockDisponible: resp.stockDisponible,
       activo: resp.activo,
+      updatedAt: new Date().toISOString(),
     };
   }
 }

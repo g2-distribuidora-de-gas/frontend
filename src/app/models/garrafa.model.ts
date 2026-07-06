@@ -1,15 +1,15 @@
 /** Tipos de garrafa alineados con el enum TipoGarrafa del backend */
 export type TipoGarrafa = 'GARRAFA_10KG' | 'GARRAFA_15KG' | 'GARRAFA_45KG';
 
-/** Modelo local (Dexie) — alineado con el backend GarrafaResponse */
+/** Modelo local (RxDB) — alineado con el backend GarrafaResponse */
 export interface Garrafa {
-  id?: number;
-  created_at: string;
+  id: string;
   tipo: TipoGarrafa;
   capacidadKg: number;
   precio: number;
   stockDisponible: number;
   activo: boolean;
+  updatedAt: string;
 }
 
 /** DTO que envía el backend */

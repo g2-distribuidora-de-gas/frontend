@@ -1,41 +1,60 @@
 import { Injectable, inject } from '@angular/core';
 import { Garrafa, GarrafaRequest } from '../models/garrafa.model';
 import { Usuario } from '../models/usuario.model';
-import { DbService } from './db.service';
+import { RxDatabaseService } from './rx-database.service';
 import { ApiUsuarioService } from './api-usuario.service';
 import { ApiGarrafaService } from './api-garrafa.service';
 
 @Injectable({ providedIn: 'root' })
 export class CatalogoService {
-  private db = inject(DbService);
+  private rxDb = inject(RxDatabaseService);
   private apiUsuario = inject(ApiUsuarioService);
   private apiGarrafa = inject(ApiGarrafaService);
 
-  getGarrafasActivas(): Promise<Garrafa[]> {
-    return this.db.garrafas.filter((g) => g.activo).toArray();
+  async getGarrafasActivas(): Promise<Garrafa[]> {
+    const docs = await this.rxDb.garrafas
+      .find({ selector: { activo: true } })
+      .exec();
+    return docs.map((d) => d.toJSON() as unknown as Garrafa);
   }
 
-  async crearGarrafa(datos: GarrafaRequest): Promise<number> {
+  async crearGarrafa(datos: GarrafaRequest): Promise<string> {
     if (!navigator.onLine) {
-      throw new Error('No se pueden crear garrafas sin conexión a internet.');
+      throw new Error('No se pueden crear garrafas.');
     }
     const resp = await this.apiGarrafa.crear({ ...datos, activo: true });
-    const local = ApiGarrafaService.toLocal(resp);
-    await this.db.garrafas.put(local);
-    return local.id!;
+    const local: Garrafa = {
+      id: String(resp.id),
+      tipo: resp.tipo,
+      capacidadKg: resp.capacidadKg,
+      precio: resp.precio,
+      stockDisponible: resp.stockDisponible,
+      activo: resp.activo,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.rxDb.garrafas.upsert(local);
+    return local.id;
   }
 
-  getUsuariosActivos(): Promise<Usuario[]> {
-    return this.db.usuarios.filter((u) => u.activo).sortBy('apellido');
+  async getUsuariosActivos(): Promise<Usuario[]> {
+    const docs = await this.rxDb.usuarios
+      .find({ selector: { activo: true } })
+      .exec();
+    const usuarios = docs.map((d) => d.toJSON() as unknown as Usuario);
+    return usuarios.sort((a, b) => a.apellido.localeCompare(b.apellido));
   }
 
-  getUsuariosInactivos(): Promise<Usuario[]> {
-    return this.db.usuarios.filter((u) => !u.activo).sortBy('apellido');
+  async getUsuariosInactivos(): Promise<Usuario[]> {
+    const docs = await this.rxDb.usuarios
+      .find({ selector: { activo: false } })
+      .exec();
+    const usuarios = docs.map((d) => d.toJSON() as unknown as Usuario);
+    return usuarios.sort((a, b) => a.apellido.localeCompare(b.apellido));
   }
 
-  async crearUsuario(datos: Omit<Usuario, 'id' | 'created_at' | 'activo'>): Promise<number> {
+  async crearUsuario(datos: Omit<Usuario, 'id' | 'updatedAt' | 'activo'>): Promise<string> {
     if (!navigator.onLine) {
-      throw new Error('No se pueden crear usuarios sin conexión a internet.');
+      throw new Error('No se pueden crear usuarios.');
     }
     const request = {
       nombre: datos.nombre,
@@ -45,61 +64,58 @@ export class CatalogoService {
       direccion: datos.direccion || undefined,
     };
     const resp = await this.apiUsuario.crear(request);
-    const local = ApiUsuarioService.toLocal(resp);
-    await this.db.usuarios.put(local);
-    return local.id!;
+    const local: Usuario = {
+      id: String(resp.id),
+      nombre: resp.nombre,
+      apellido: resp.apellido,
+      dni: resp.dni,
+      telefono: resp.telefono ?? '',
+      direccion: resp.direccion ?? '',
+      activo: resp.activo,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.rxDb.usuarios.upsert(local);
+    return local.id;
   }
 
   /** Baja lógica: nunca se borra el registro, solo se marca como inactivo */
-  async darBajaUsuario(id: number): Promise<void> {
+  async darBajaUsuario(id: string): Promise<void> {
     if (!navigator.onLine) {
-      throw new Error('No se pueden dar de baja usuarios sin conexión a internet.');
+      throw new Error('No se pueden dar de baja usuarios.');
     }
     try {
-      await this.apiUsuario.eliminar(id);
+      await this.apiUsuario.eliminar(Number(id));
     } catch (e) {
       console.error('Error dando de baja usuario en backend', e);
       throw new Error('No se pudo dar de baja el usuario en el servidor.');
     }
-    await this.db.usuarios.update(id, { activo: false });
+    const doc = await this.rxDb.usuarios.findOne(id).exec();
+    if (doc) {
+      await doc.patch({ activo: false, updatedAt: new Date().toISOString() });
+    }
   }
 
   /** Reactiva un usuario dado de baja */
-  async reactivarUsuario(id: number): Promise<void> {
+  async reactivarUsuario(id: string): Promise<void> {
     if (!navigator.onLine) {
       throw new Error('No se pueden reactivar usuarios sin conexión a internet.');
     }
-    const u = await this.db.usuarios.get(id);
-    if (!u) throw new Error('Usuario no encontrado.');
+    const doc = await this.rxDb.usuarios.findOne(id).exec();
+    if (!doc) throw new Error('Usuario no encontrado.');
+
     try {
-      await this.apiUsuario.actualizar(id, {
-        nombre: u.nombre,
-        apellido: u.apellido,
-        dni: u.dni,
-        telefono: u.telefono || undefined,
-        direccion: u.direccion || undefined,
+      await this.apiUsuario.actualizar(Number(id), {
+        nombre: doc.nombre,
+        apellido: doc.apellido,
+        dni: doc.dni,
+        telefono: doc.telefono || undefined,
+        direccion: doc.direccion || undefined,
         activo: true,
       });
     } catch (e) {
       console.error('Error reactivando usuario en backend', e);
       throw new Error('No se pudo reactivar el usuario en el servidor.');
     }
-    await this.db.usuarios.update(id, { activo: true });
-  }
-
-  /** Reemplaza los datos locales con lo traído del backend */
-  async sincronizarGarrafas(garrafas: Garrafa[]): Promise<void> {
-    await this.db.transaction('rw', this.db.garrafas, async () => {
-      await this.db.garrafas.clear();
-      await this.db.garrafas.bulkAdd(garrafas);
-    });
-  }
-
-  /** Reemplaza los datos locales con lo traído del backend */
-  async sincronizarUsuarios(usuarios: Usuario[]): Promise<void> {
-    await this.db.transaction('rw', this.db.usuarios, async () => {
-      await this.db.usuarios.clear();
-      await this.db.usuarios.bulkAdd(usuarios);
-    });
+    await doc.patch({ activo: true, updatedAt: new Date().toISOString() });
   }
 }

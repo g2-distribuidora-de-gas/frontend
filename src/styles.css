@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Paleta de la marca: amarillo suave / mostaza */
+
 @theme {
   --color-brand-50: #fdfaf1;
   --color-brand-100: #faf1d9;

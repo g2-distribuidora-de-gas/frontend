@@ -1,13 +1,13 @@
-/** Modelo local (Dexie) — alineado con el backend UsuarioResponse */
+/** Modelo local (RxDB) — alineado con el backend UsuarioResponse */
 export interface Usuario {
-  id?: number;
-  created_at: string;
+  id: string;
   nombre: string;
   apellido: string;
   dni: string;
   telefono: string;
   direccion: string;
   activo: boolean;
+  updatedAt: string;
 }
 
 /** DTO que envía el backend */

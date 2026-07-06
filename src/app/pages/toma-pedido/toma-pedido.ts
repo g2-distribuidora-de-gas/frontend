@@ -7,7 +7,7 @@ import { Usuario } from '../../models/usuario.model';
 import { CatalogoService } from '../../services/catalogo.service';
 import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
-import { SyncService } from '../../services/sync.service';
+import { ReplicationService } from '../../services/replication.service';
 
 @Component({
   selector: 'app-toma-pedido',
@@ -19,18 +19,18 @@ export class TomaPedido {
   private pedidoSrv = inject(PedidoService);
   private router = inject(Router);
   private toast = inject(ToastService);
-  private syncService = inject(SyncService);
+  private replication = inject(ReplicationService);
 
   protected usuarios = signal<Usuario[]>([]);
   protected usuariosInactivos = signal<Usuario[]>([]);
   protected mostrarInactivos = signal(false);
   protected garrafas = signal<Garrafa[]>([]);
-  protected usuarioId = signal<number | null>(null);
+  protected usuarioId = signal<string | null>(null);
   protected busqueda = signal('');
   protected observaciones = signal('');
-  protected cantidades = signal<Record<number, number>>({});
+  protected cantidades = signal<Record<string, number>>({});
   protected guardando = signal(false);
-  protected exito = signal<number | null>(null);
+  protected exito = signal<string | null>(null);
 
   protected usuariosFiltrados = computed(() => {
     const q = this.busqueda().toLowerCase().trim();
@@ -47,8 +47,8 @@ export class TomaPedido {
   protected items = computed(() => {
     const cant = this.cantidades();
     return this.garrafas()
-      .filter((g) => (cant[g.id!] ?? 0) > 0)
-      .map((g) => ({ garrafa: g, cantidad: cant[g.id!], subtotal: cant[g.id!] * g.precio }));
+      .filter((g) => (cant[g.id] ?? 0) > 0)
+      .map((g) => ({ garrafa: g, cantidad: cant[g.id], subtotal: cant[g.id] * g.precio }));
   });
 
   protected total = computed(() => this.items().reduce((acc, i) => acc + i.subtotal, 0));
@@ -67,13 +67,13 @@ export class TomaPedido {
   }
 
   protected cantidadDe(g: Garrafa): number {
-    return this.cantidades()[g.id!] ?? 0;
+    return this.cantidades()[g.id] ?? 0;
   }
 
   protected ajustar(g: Garrafa, delta: number): void {
     this.cantidades.update((c) => {
-      const nueva = Math.max(0, (c[g.id!] ?? 0) + delta);
-      return { ...c, [g.id!]: nueva };
+      const nueva = Math.max(0, (c[g.id] ?? 0) + delta);
+      return { ...c, [g.id]: nueva };
     });
   }
 
@@ -83,11 +83,11 @@ export class TomaPedido {
 
   protected setCantidad(g: Garrafa, valor: number | string | null): void {
     const n = Math.max(0, Math.floor(Number(valor) || 0));
-    this.cantidades.update((c) => ({ ...c, [g.id!]: n }));
+    this.cantidades.update((c) => ({ ...c, [g.id]: n }));
   }
 
   protected seleccionarUsuario(u: Usuario): void {
-    this.usuarioId.set(this.usuarioId() === u.id ? null : u.id!);
+    this.usuarioId.set(this.usuarioId() === u.id ? null : u.id);
   }
 
   // ─── Formulario nuevo usuario ───
@@ -165,7 +165,7 @@ export class TomaPedido {
   protected async darBajaUsuario(u: Usuario): Promise<void> {
     if (!confirm(`¿Dar de baja a ${u.nombre} ${u.apellido}? Podrás reactivarlo más adelante.`)) return;
     try {
-      await this.catalogo.darBajaUsuario(u.id!);
+      await this.catalogo.darBajaUsuario(u.id);
       if (this.usuarioId() === u.id) this.usuarioId.set(null);
       await this.recargarUsuarios();
       this.toast.exito('Usuario dado de baja.');
@@ -176,7 +176,7 @@ export class TomaPedido {
 
   protected async reactivarUsuario(u: Usuario): Promise<void> {
     try {
-      await this.catalogo.reactivarUsuario(u.id!);
+      await this.catalogo.reactivarUsuario(u.id);
       await this.recargarUsuarios();
       this.toast.exito(`${u.nombre} ${u.apellido} reactivado.`);
     } catch (e: any) {
@@ -244,25 +244,25 @@ export class TomaPedido {
     this.guardando.set(true);
     try {
       const usuario = this.usuarioSeleccionado()!;
-      const id = await this.pedidoSrv.crearPedido(
+      const uuid = await this.pedidoSrv.crearPedido(
         this.usuarioId()!,
         usuario.direccion,
         this.items().map((i) => ({
-          garrafaId: i.garrafa.id!,
+          garrafaId: i.garrafa.id,
           cantidad: i.cantidad,
           precioUnitario: i.garrafa.precio,
         })),
         this.observaciones().trim(),
       );
-      this.exito.set(id);
+      this.exito.set(uuid);
       this.cantidades.set({});
       this.observaciones.set('');
       this.usuarioId.set(null);
       this.busqueda.set('');
 
-      // Intentar sincronizar inmediatamente si hay conexión
+      // La replicación se encarga de sincronizar automáticamente
       if (navigator.onLine) {
-        this.syncService.sincronizar();
+        this.replication.resincronizar();
       }
     } finally {
       this.guardando.set(false);

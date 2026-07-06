@@ -3,9 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models';
-import { nombreGarrafa } from '../../models/garrafa.model';
+import { nombreGarrafa, TipoGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
-import { EstadoInfo } from '../../services/db.service';
+import { EstadoInfo } from '../../services/rx-database.service';
 
 @Component({
   selector: 'app-pedidos',
@@ -19,7 +19,7 @@ export class Pedidos {
   protected estados: EstadoInfo[] = this.pedidoSrv.getEstados();
   protected filtroEstado = signal<string>('todos');
   protected busqueda = signal('');
-  protected expandido = signal<number | null>(null);
+  protected expandido = signal<string | null>(null);
   protected cargando = signal(true);
 
   protected nombreGarrafa = nombreGarrafa;
@@ -32,7 +32,7 @@ export class Pedidos {
       if (estado !== 'todos' && p.estado !== estado) return false;
       if (!q) return true;
       const usuario = p.usuario ? `${p.usuario.nombre} ${p.usuario.apellido} ${p.usuario.direccion}` : '';
-      return `#${p.id} ${usuario} ${p.observaciones}`.toLowerCase().includes(q);
+      return `${p.uuidOffline} ${usuario} ${p.observaciones}`.toLowerCase().includes(q);
     });
   });
 
@@ -46,12 +46,12 @@ export class Pedidos {
     this.cargando.set(false);
   }
 
-  protected alternar(id: number): void {
-    this.expandido.set(this.expandido() === id ? null : id);
+  protected alternar(uuid: string): void {
+    this.expandido.set(this.expandido() === uuid ? null : uuid);
   }
 
   protected async cambiarEstado(pedido: PedidoCompleto, estado: EstadoPedido): Promise<void> {
-    await this.pedidoSrv.cambiarEstado(pedido.id!, estado);
+    await this.pedidoSrv.cambiarEstado(pedido.uuidOffline, estado);
     await this.cargar();
   }
 
