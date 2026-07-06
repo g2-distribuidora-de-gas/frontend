@@ -17,7 +17,6 @@ export class ApiGarrafaService {
     return firstValueFrom(this.http.post<GarrafaResponse>('/api/garrafas', request));
   }
 
-  /** PUT /api/garrafas/:id */
   async actualizar(id: number, request: GarrafaRequest): Promise<GarrafaResponse> {
     return firstValueFrom(this.http.put<GarrafaResponse>(`/api/garrafas/${id}`, request));
   }

@@ -94,9 +94,10 @@ export class TomaPedido {
     if (['.', ',', 'e', 'E', '-', '+'].includes(e.key)) e.preventDefault();
   }
 
-  protected setCantidad(g: Garrafa, valor: number | string | null): void {
+  protected setCantidad(g: Garrafa, el: HTMLInputElement): void {
     const tope = this.stockDe(g);
-    const n = Math.min(tope, Math.max(0, Math.floor(Number(valor) || 0)));
+    const n = Math.min(tope, Math.max(0, Math.floor(Number(el.value) || 0)));
+    el.value = String(n);
     this.cantidades.update((c) => ({ ...c, [g.id]: n }));
   }
 
@@ -252,6 +253,34 @@ export class TomaPedido {
     }
   }
 
+  // ─── Reponer stock ───
+
+  protected reponiendoId = signal<string | null>(null);
+  protected stockAReponer = signal<number | null>(null);
+
+  protected abrirReponer(g: Garrafa): void {
+    this.reponiendoId.set(this.reponiendoId() === g.id ? null : g.id);
+    this.stockAReponer.set(null);
+  }
+
+  protected async reponerStock(g: Garrafa): Promise<void> {
+    const cant = this.stockAReponer();
+    if (cant === null || cant <= 0 || !Number.isInteger(Number(cant))) {
+      this.toast.error('Ingresá una cantidad entera mayor a 0.');
+      return;
+    }
+    try {
+      await this.catalogo.reponerStock(g.id, Number(cant));
+      this.reponiendoId.set(null);
+      this.stockAReponer.set(null);
+      this.toast.exito('Stock actualizado.');
+    } catch (e: any) {
+      this.toast.error(e.message || 'Error al reponer stock.');
+    }
+  }
+
+  // ─── Confirmar pedido ───
+
   protected async confirmar(): Promise<void> {
     if (!this.puedeConfirmar()) return;
     this.guardando.set(true);
@@ -262,7 +291,8 @@ export class TomaPedido {
         usuario.direccion,
         this.items().map((i) => ({
           garrafaId: i.garrafa.id,
-          cantidad: i.cantidad,
+          // red de seguridad: nunca mandar más que el stock disponible
+          cantidad: Math.min(i.cantidad, i.garrafa.stockDisponible ?? i.cantidad),
           precioUnitario: i.garrafa.precio,
         })),
         this.observaciones().trim(),
@@ -273,7 +303,7 @@ export class TomaPedido {
       this.usuarioId.set(null);
       this.busqueda.set('');
 
-   
+      // La replicación se encarga de sincronizar automáticamente
       if (navigator.onLine) {
         this.replication.resincronizar();
       }
