@@ -1,51 +1,70 @@
 <div class="min-h-dvh flex flex-col">
-  <header class="sticky top-0 z-20 bg-brand-500 shadow-md">
-    <div class="mx-auto max-w-5xl px-4">
-      <div class="flex h-14 items-center justify-between gap-3">
-        <a routerLink="/" class="flex items-center gap-2 text-white">
-          <span class="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-lg">:D</span>
-          <span class="font-semibold tracking-tight">Distribuidora de Gas</span>
-        </a>
+  @if (!enLogin()) {
+    <header class="sticky top-0 z-20 bg-brand-500 shadow-md">
+      <div class="mx-auto max-w-5xl px-4">
+        <div class="flex h-14 items-center justify-between gap-3">
+          <a routerLink="/" class="flex items-center gap-2 text-white">
+            <span class="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-lg">:D</span>
+            <span class="font-semibold tracking-tight">Distribuidora de Gas</span>
+          </a>
 
-        <div class="flex items-center gap-2 sm:gap-4">
-          <span
-            class="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:flex"
-            [class]="online() ? 'bg-white/20 text-white' : 'bg-brand-900 text-brand-100'"
-          >
-            <span class="h-2 w-2 rounded-full" [class]="online() ? 'bg-green-300' : 'bg-red-400'"></span>
-            {{ online() ? 'En línea' : 'Sin conexión' }}
-          </span>
+          <div class="flex items-center gap-2 sm:gap-4">
+            <span
+              class="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:flex"
+              [class]="online() ? 'bg-white/20 text-white' : 'bg-brand-900 text-brand-100'"
+            >
+              <span class="h-2 w-2 rounded-full" [class]="online() ? 'bg-green-300' : 'bg-red-400'"></span>
+              {{ online() ? 'En línea' : 'Sin conexión' }}
+            </span>
 
-          <nav class="flex gap-1 rounded-full bg-brand-600/60 p-1 text-sm font-medium text-brand-50">
-            <a
-              routerLink="/toma-pedido"
-              routerLinkActive="bg-white text-brand-700 shadow-sm"
-              class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-            >Nuevo pedido</a>
-            <a
-              routerLink="/pedidos"
-              routerLinkActive="bg-white text-brand-700 shadow-sm"
-              class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-            >Pedidos</a>
-          </nav>
+            <nav class="flex gap-1 rounded-full bg-brand-600/60 p-1 text-sm font-medium text-brand-50">
+              <a
+                routerLink="/toma-pedido"
+                routerLinkActive="bg-white text-brand-700 shadow-sm"
+                class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+              >Nuevo pedido</a>
+              <a
+                routerLink="/pedidos"
+                routerLinkActive="bg-white text-brand-700 shadow-sm"
+                class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+              >Pedidos</a>
+            </nav>
+
+            @if (auth.usuario(); as u) {
+              <div class="flex items-center gap-2">
+                <span class="hidden text-xs font-medium text-white/90 sm:block">{{ u.nombreCompleto }}</span>
+                <button
+                  (click)="cerrarSesion()"
+                  title="Cerrar sesión"
+                  class="rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/25"
+                >Salir</button>
+              </div>
+            }
+          </div>
         </div>
       </div>
-    </div>
-  </header>
+    </header>
 
-  @if (!online()) {
-    <div class="bg-brand-900 py-1.5 text-center text-xs font-medium text-brand-100 sm:hidden">
-      Sin conexión — trabajando offline
-    </div>
+    @if (!online()) {
+      <div class="bg-brand-900 py-1.5 text-center text-xs font-medium text-brand-100 sm:hidden">
+        Sin conexión — trabajando offline
+      </div>
+    }
   }
 
-  <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
-    <router-outlet />
-  </main>
+  @if (enLogin()) {
+    <main class="flex-1">
+      <router-outlet />
+    </main>
+  } @else {
+    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+      <router-outlet />
+    </main>
 
-  <footer class="py-4 text-center text-xs text-brand-700/60">
-    Prueba técnica · Toma de pedidos offline
-  </footer>
+    <footer class="py-4 text-center text-xs text-brand-700/60">
+      Prueba técnica · Toma de pedidos offline
+    </footer>
+  }
 
   <div class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4" aria-live="polite">
     @for (t of toast.toasts(); track t.id) {

@@ -8,14 +8,13 @@ import { PedidoDocType } from '../schemas/pedido.schema';
 import { UsuarioDocType } from '../schemas/usuario.schema';
 import { GarrafaDocType } from '../schemas/garrafa.schema';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import {
   PedidoRequest,
   SincronizacionRequest,
   SincronizacionResponse,
 } from '../models/pedido.model';
 
-/** Checkpoint para rastrear la última sincronización */
 interface ReplicationCheckpoint {
   updatedAt: string;
   id: string;
@@ -30,19 +29,20 @@ export class ReplicationService {
   private http = inject(HttpClient);
 
   private replicationStates: RxReplicationState<any, any>[] = [];
+  private subscriptions: Subscription[] = [];
+  private iniciada = false;
 
-  /**
-   * Inicia la replicación para todas las colecciones.
-   * Debe llamarse después de que la DB esté inicializada.
-   */
+
   async iniciar(): Promise<void> {
+    if (this.iniciada) return;
+    this.iniciada = true;
     this.iniciarReplicacionUsuarios();
     this.iniciarReplicacionGarrafas();
     this.iniciarReplicacionPedidos();
     console.log('[ReplicationService] Replicación iniciada para todas las colecciones.');
   }
 
-  // ─── Usuarios: Pull-only (datos maestros) ───
+
 
   private iniciarReplicacionUsuarios(): void {
     const state = replicateRxCollection<UsuarioDocType, ReplicationCheckpoint>({
@@ -91,7 +91,7 @@ export class ReplicationService {
     this.replicationStates.push(state);
   }
 
-  // ─── Garrafas: Pull-only (datos maestros) ───
+
 
   private iniciarReplicacionGarrafas(): void {
     const state = replicateRxCollection<GarrafaDocType, ReplicationCheckpoint>({
@@ -139,7 +139,7 @@ export class ReplicationService {
     this.replicationStates.push(state);
   }
 
-  // ─── Pedidos: Push + Pull ───
+
 
   private iniciarReplicacionPedidos(): void {
     const state = replicateRxCollection<PedidoDocType, ReplicationCheckpoint>({
@@ -194,7 +194,7 @@ export class ReplicationService {
       push: {
         batchSize: 20,
         handler: async (rows) => {
-          // Solo pushear pedidos no sincronizados
+
           const nuevos = rows
             .filter((row) => !row.newDocumentState.sincronizado)
             .map((row) => row.newDocumentState);
@@ -217,7 +217,7 @@ export class ReplicationService {
               this.http.post<SincronizacionResponse>('/api/sincronizar', request),
             );
 
-            // Marcar localmente como sincronizados
+
             for (const procesado of response.procesados) {
               const doc = await this.rxDb.pedidos.findOne(procesado.uuidOffline).exec();
               if (doc) {
@@ -229,7 +229,7 @@ export class ReplicationService {
               }
             }
 
-            // Duplicados ya estaban sincronizados
+
             for (const uuid of response.duplicados) {
               const doc = await this.rxDb.pedidos.findOne(uuid).exec();
               if (doc && !doc.sincronizado) {
@@ -237,7 +237,7 @@ export class ReplicationService {
               }
             }
 
-            // Notificar
+
             const ok = response.procesados.length;
             const dup = response.duplicados.length;
             const err = response.errores.length;
@@ -245,12 +245,12 @@ export class ReplicationService {
             if (dup > 0) this.toast.mostrar(`${dup} pedido(s) ya estaban en el servidor.`, 'info');
             if (err > 0) this.toast.error(`${err} pedido(s) fallaron al sincronizar.`);
 
-            // No hay conflictos en este modelo — el server acepta o rechaza
+
             return [];
           } catch (error: any) {
             if (error.status === 0 || !navigator.onLine) {
               console.warn('[ReplicationService] Dispositivo offline, los pedidos se sincronizarán cuando vuelva la conexión.');
-              throw error; // Throw para que RxDB lo reintente, pero sin mostrar toast
+              throw error; 
             }
             console.error('[ReplicationService] Error al hacer push de pedidos:', error);
             this.toast.error('No se pudo sincronizar pedidos con el servidor.');
@@ -264,37 +264,47 @@ export class ReplicationService {
     this.replicationStates.push(state);
   }
 
-  // ─── Helpers ───
+
 
   private registrarEventos(state: RxReplicationState<any, any>, nombre: string): void {
-    state.error$.subscribe((err: any) => {
-      // Ignorar errores RC_PUSH y RC_PULL si son por falta de red (offline)
-      const isNetworkError = err.parameters?.errors?.status === 0 || err.parameters?.errors?.name === 'HttpErrorResponse' || !navigator.onLine;
-      if (isNetworkError) {
-         console.warn(`[ReplicationService] Pausa temporal en replicación de ${nombre} por falta de red.`);
-      } else {
-         console.error(`[ReplicationService] Error en replicación de ${nombre}:`, err);
-      }
-    });
-    state.active$.subscribe((active) => {
-      if (active) {
-        console.log(`[ReplicationService] Replicación de ${nombre} activa.`);
-      }
-    });
+    this.subscriptions.push(
+      state.error$.subscribe((err: any) => {
+        const isNetworkError = err.parameters?.errors?.status === 0 || err.parameters?.errors?.name === 'HttpErrorResponse' || !navigator.onLine;
+        if (isNetworkError) {
+          console.warn(`[ReplicationService] Pausa temporal en replicación de ${nombre} por falta de red.`);
+        } else {
+          console.error(`[ReplicationService] Error en replicación de ${nombre}:`, err);
+        }
+      }),
+    );
+    this.subscriptions.push(
+      state.active$.subscribe((active) => {
+        if (active) {
+          console.log(`[ReplicationService] Replicación de ${nombre} activa.`);
+        }
+      }),
+    );
   }
 
-  /** Fuerza una resincronización de todas las colecciones */
+ 
   async resincronizar(): Promise<void> {
     for (const state of this.replicationStates) {
       await state.reSync();
     }
   }
 
-  /** Cancela todas las replicaciones (cleanup) */
+
   async cancelar(): Promise<void> {
+    for (const sub of this.subscriptions) {
+      sub.unsubscribe();
+    }
+    this.subscriptions = [];
+
     for (const state of this.replicationStates) {
       await state.cancel();
     }
     this.replicationStates = [];
+
+    this.iniciada = false;
   }
 }

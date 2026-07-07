@@ -1,0 +1,123 @@
+<div class="grid min-h-dvh w-full lg:grid-cols-2">
+  <div class="flex items-center justify-center px-6 py-10">
+    <div class="w-full max-w-sm">
+      <div class="mb-10 flex items-center gap-2">
+        <span
+          class="grid h-9 w-9 place-items-center rounded-lg bg-brand-500 text-lg font-bold text-white"
+          >G</span
+        >
+        <span class="text-lg font-semibold tracking-tight text-ink">Distribuidora de Gas</span>
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight text-ink">Bienvenido</h1>
+      <p class="mt-1 text-sm text-brand-700/70">Ingresá tus datos para continuar</p>
+
+      <form class="mt-8 space-y-5" (ngSubmit)="iniciarSesion()">
+        <div>
+          <label for="email" class="block text-sm font-medium text-ink">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            placeholder="tu@correo.com"
+            [ngModel]="email()"
+            (ngModelChange)="email.set($event)"
+            (blur)="emailTocado.set(true)"
+            class="mt-1.5 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:ring-2 focus:ring-brand-500/30"
+            [class]="
+              emailTocado() && !emailValido()
+                ? 'border-red-400 focus:border-red-400'
+                : 'border-brand-200 focus:border-brand-500'
+            "
+          />
+          @if (emailTocado() && email() && !emailValido()) {
+            <p class="mt-1 text-xs font-medium text-red-600">
+              El email debe contener “@” y “.com”.
+            </p>
+          }
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-medium text-ink">Contraseña</label>
+          <div class="relative mt-1.5">
+            <input
+              id="password"
+              name="password"
+              [type]="verPassword() ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              [ngModel]="password()"
+              (ngModelChange)="password.set($event)"
+              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 pr-16 text-sm text-ink shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
+            />
+            <button
+              type="button"
+              (click)="verPassword.set(!verPassword())"
+              class="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-brand-700 hover:text-brand-900"
+            >
+              {{ verPassword() ? 'Ocultar' : 'Ver' }}
+            </button>
+          </div>
+        </div>
+
+        @if (error()) {
+          <div
+            class="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700"
+          >
+            {{ error() }}
+          </div>
+        }
+
+        <button
+          type="submit"
+          [disabled]="cargando()"
+          class="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          @if (cargando()) {
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+            ></span>
+            Ingresando…
+          } @else {
+            Iniciar sesión
+          }
+        </button>
+      </form>
+      <p class="mt-8 text-center text-xs text-brand-700/60">
+        Sistema de toma de pedidos · acceso solo para personal autorizado
+      </p>
+    </div>
+  </div>
+
+  <div class="relative hidden overflow-hidden bg-brand-500 lg:block">
+    <div class="absolute inset-0 bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700"></div>
+
+    <svg
+      class="absolute inset-0 h-full w-full opacity-15"
+      viewBox="0 0 400 400"
+      preserveAspectRatio="xMidYMid slice"
+      xmlns=""
+    >
+      <defs>
+        <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+          <circle cx="4" cy="4" r="2" fill="#ffffff" />
+        </pattern>
+      </defs>
+      <rect width="400" height="400" fill="url(#dots)" />
+    </svg>
+
+    <div
+      class="relative flex h-full flex-col items-center justify-center px-12 text-center text-white"
+    >
+      <img
+        src="/garrafa.png"
+        alt="Garrafa de gas"
+        class="h-70 w-65 object-contain drop-shadow-xl"
+      />
+      <h2 class="mt-8 text-2xl font-bold">Gestión de pedidos, simple y offline</h2>
+      <p class="mt-3 max-w-xs text-sm text-white/80">
+        Tomá pedidos aunque no tengas señal. Todo se sincroniza cuando vuelve la conexión.
+      </p>
+    </div>
+  </div>
+</div>
