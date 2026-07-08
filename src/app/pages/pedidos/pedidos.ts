@@ -31,8 +31,8 @@ export class Pedidos {
     return this.pedidos().filter((p) => {
       if (estado !== 'todos' && p.estado !== estado) return false;
       if (!q) return true;
-      const usuario = p.usuario ? `${p.usuario.nombre} ${p.usuario.apellido} ${p.usuario.direccion}` : '';
-      return `${p.uuidOffline} ${usuario} ${p.observaciones}`.toLowerCase().includes(q);
+      const cliente = p.cliente ? `${p.cliente.nombre} ${p.cliente.apellido} ${p.cliente.direccion}` : '';
+      return `${p.uuidOffline} ${cliente} ${p.observaciones}`.toLowerCase().includes(q);
     });
   });
 

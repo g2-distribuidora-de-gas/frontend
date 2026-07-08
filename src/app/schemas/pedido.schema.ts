@@ -18,9 +18,10 @@ export const pedidoSchemaLiteral = {
   properties: {
     uuidOffline: { type: 'string', maxLength: 36 },
     backendId: { type: 'number' },
-    usuarioId: { type: 'string', maxLength: 36 },
+    clienteId: { type: 'string', maxLength: 36 },
     direccionEntrega: { type: 'string' },
     estado: { type: 'string', maxLength: 20 },
+    urlFotoEvidencia: { type: 'string' },
     total: { type: 'number' },
     observaciones: { type: 'string' },
     sincronizado: { type: 'boolean' },
@@ -41,7 +42,7 @@ export const pedidoSchemaLiteral = {
   },
   required: [
     'uuidOffline',
-    'usuarioId',
+    'clienteId',
     'estado',
     'total',
     'sincronizado',

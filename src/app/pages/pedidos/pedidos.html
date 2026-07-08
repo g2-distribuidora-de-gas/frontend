@@ -15,7 +15,7 @@
       type="search"
       [ngModel]="busqueda()"
       (ngModelChange)="busqueda.set($event)"
-      placeholder="Buscar por usuario, dirección o N°…"
+      placeholder="Buscar por cliente, dirección o N°…"
       class="w-full rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200 sm:max-w-xs"
     />
     <div class="flex flex-wrap gap-2">
@@ -50,7 +50,7 @@
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span class="text-sm font-bold text-brand-800">{{ p.backendId ? '#' + p.backendId : '⏳' }}</span>
               <span class="min-w-0 flex-1 truncate text-sm font-semibold">
-                @if (p.usuario; as u) { {{ u.apellido }}, {{ u.nombre }} } @else { Usuario desconocido }
+                @if (p.cliente; as c) { {{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }} } @else { Cliente desconocido }
               </span>
               <span class="rounded-full border px-2.5 py-0.5 text-xs font-medium" [class]="claseEstado(p.estado)">
                 {{ estadoLabels[p.estado] ?? '—' }}

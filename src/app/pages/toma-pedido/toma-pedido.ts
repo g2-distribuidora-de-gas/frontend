@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { Garrafa, TipoGarrafa, nombreGarrafa } from '../../models/garrafa.model';
-import { Usuario } from '../../models/usuario.model';
+import { Cliente } from '../../models/cliente.model';
 import { CatalogoService } from '../../services/catalogo.service';
 import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
@@ -22,28 +22,28 @@ export class TomaPedido {
   private toast = inject(ToastService);
   private replication = inject(ReplicationService);
 
-  protected usuarios = signal<Usuario[]>([]);
-  protected usuariosInactivos = signal<Usuario[]>([]);
+  protected clientes = signal<Cliente[]>([]);
+  protected clientesInactivos = signal<Cliente[]>([]);
   protected mostrarInactivos = signal(false);
   // Lista reactiva: se actualiza sola cuando cambia el stock/precio en RxDB
   protected garrafas = toSignal(this.catalogo.garrafasActivas$(), { initialValue: [] as Garrafa[] });
-  protected usuarioId = signal<string | null>(null);
+  protected clienteId = signal<string | null>(null);
   protected busqueda = signal('');
   protected observaciones = signal('');
   protected cantidades = signal<Record<string, number>>({});
   protected guardando = signal(false);
   protected exito = signal<string | null>(null);
 
-  protected usuariosFiltrados = computed(() => {
+  protected clientesFiltrados = computed(() => {
     const q = this.busqueda().toLowerCase().trim();
-    if (!q) return this.usuarios();
-    return this.usuarios().filter((u) =>
-      `${u.nombre} ${u.apellido} ${u.direccion} ${u.dni}`.toLowerCase().includes(q),
+    if (!q) return this.clientes();
+    return this.clientes().filter((c) =>
+      `${c.nombre} ${c.apellido} ${c.direccion} ${c.dni}`.toLowerCase().includes(q),
     );
   });
 
-  protected usuarioSeleccionado = computed(
-    () => this.usuarios().find((u) => u.id === this.usuarioId()) ?? null,
+  protected clienteSeleccionado = computed(
+    () => this.clientes().find((c) => c.id === this.clienteId()) ?? null,
   );
 
   protected items = computed(() => {
@@ -54,17 +54,17 @@ export class TomaPedido {
   });
 
   protected total = computed(() => this.items().reduce((acc, i) => acc + i.subtotal, 0));
-  protected puedeConfirmar = computed(() => !!this.usuarioId() && this.items().length > 0 && !this.guardando());
+  protected puedeConfirmar = computed(() => !!this.clienteId() && this.items().length > 0 && !this.guardando());
 
   protected nombreGarrafa = nombreGarrafa;
 
   constructor() {
-    this.recargarUsuarios();
+    this.recargarClientes();
   }
 
-  private async recargarUsuarios(): Promise<void> {
-    this.usuarios.set(await this.catalogo.getUsuariosActivos());
-    this.usuariosInactivos.set(await this.catalogo.getUsuariosInactivos());
+  private async recargarClientes(): Promise<void> {
+    this.clientes.set(await this.catalogo.getClientesActivos());
+    this.clientesInactivos.set(await this.catalogo.getClientesInactivos());
   }
 
   protected cantidadDe(g: Garrafa): number {
@@ -102,26 +102,25 @@ export class TomaPedido {
     this.cantidades.update((c) => ({ ...c, [g.id]: n }));
   }
 
-  protected seleccionarUsuario(u: Usuario): void {
-    this.usuarioId.set(this.usuarioId() === u.id ? null : u.id);
+  protected seleccionarCliente(c: Cliente): void {
+    this.clienteId.set(this.clienteId() === c.id ? null : c.id);
   }
 
-  // ─── Formulario nuevo usuario ───
 
-  protected mostrarFormUsuario = signal(false);
-  protected nuevoUsuario = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+  protected mostrarFormCliente = signal(false);
+  protected nuevoCliente = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
 
-  protected campoUsuario(campo: 'nombre' | 'apellido' | 'dni' | 'telefono' | 'direccion', valor: string): void {
+  protected campoCliente(campo: 'nombre' | 'apellido' | 'dni' | 'telefono' | 'direccion', valor: string): void {
     if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 10);
     if (campo === 'dni') valor = valor.replace(/\D/g, '').slice(0, 10);
     if (campo === 'nombre' || campo === 'apellido') valor = valor.replace(/\d/g, '');
-    this.nuevoUsuario.update((n) => ({ ...n, [campo]: valor }));
+    this.nuevoCliente.update((n) => ({ ...n, [campo]: valor }));
   }
 
-  private validarNuevoUsuario(): boolean {
-    const n = this.nuevoUsuario();
+  private validarNuevoCliente(): boolean {
+    const n = this.nuevoCliente();
     if (!n.nombre.trim() || !n.apellido.trim() || !n.dni.trim() || !n.telefono.trim() || !n.direccion.trim()) {
-      this.toast.error('Completá todos los campos del usuario.');
+      this.toast.error('Completá todos los campos del cliente.');
       return false;
     }
     if (/\d/.test(n.nombre) || /\d/.test(n.apellido)) {
@@ -154,49 +153,49 @@ export class TomaPedido {
     const maxLen = 10;
     const nuevo = (input.value + pegado).slice(0, maxLen);
     input.value = nuevo;
-    this.campoUsuario(campo, nuevo);
+    this.campoCliente(campo, nuevo);
   }
 
-  protected async guardarUsuario(): Promise<void> {
-    if (!this.validarNuevoUsuario()) return;
-    const n = this.nuevoUsuario();
+  protected async guardarCliente(): Promise<void> {
+    if (!this.validarNuevoCliente()) return;
+    const n = this.nuevoCliente();
     try {
-      const id = await this.catalogo.crearUsuario({
+      const id = await this.catalogo.crearCliente({
         nombre: n.nombre.trim(),
         apellido: n.apellido.trim(),
         dni: n.dni.trim(),
         telefono: n.telefono.trim(),
         direccion: n.direccion.trim(),
       });
-      await this.recargarUsuarios();
-      this.usuarioId.set(id);
-      this.nuevoUsuario.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
-      this.mostrarFormUsuario.set(false);
-      this.toast.exito('Usuario guardado.');
+      await this.recargarClientes();
+      this.clienteId.set(id);
+      this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+      this.mostrarFormCliente.set(false);
+      this.toast.exito('Cliente guardado.');
     } catch (e: any) {
-      this.toast.error(e.message || 'Error al guardar el usuario.');
+      this.toast.error(e.message || 'Error al guardar el cliente.');
     }
   }
 
-  protected async darBajaUsuario(u: Usuario): Promise<void> {
-    if (!confirm(`¿Dar de baja a ${u.nombre} ${u.apellido}? Podrás reactivarlo más adelante.`)) return;
+  protected async darBajaCliente(c: Cliente): Promise<void> {
+    if (!confirm(`¿Dar de baja a ${c.nombre} ${c.apellido}? Podrás reactivarlo más adelante.`)) return;
     try {
-      await this.catalogo.darBajaUsuario(u.id);
-      if (this.usuarioId() === u.id) this.usuarioId.set(null);
-      await this.recargarUsuarios();
-      this.toast.exito('Usuario dado de baja.');
+      await this.catalogo.darBajaCliente(c.id);
+      if (this.clienteId() === c.id) this.clienteId.set(null);
+      await this.recargarClientes();
+      this.toast.exito('Cliente dado de baja.');
     } catch (e: any) {
-      this.toast.error(e.message || 'Error al dar de baja el usuario.');
+      this.toast.error(e.message || 'Error al dar de baja el cliente.');
     }
   }
 
-  protected async reactivarUsuario(u: Usuario): Promise<void> {
+  protected async reactivarCliente(c: Cliente): Promise<void> {
     try {
-      await this.catalogo.reactivarUsuario(u.id);
-      await this.recargarUsuarios();
-      this.toast.exito(`${u.nombre} ${u.apellido} reactivado.`);
+      await this.catalogo.reactivarCliente(c.id);
+      await this.recargarClientes();
+      this.toast.exito(`${c.nombre} ${c.apellido} reactivado.`);
     } catch (e: any) {
-      this.toast.error(e.message || 'Error al reactivar el usuario.');
+      this.toast.error(e.message || 'Error al reactivar el cliente.');
     }
   }
 
@@ -326,10 +325,10 @@ export class TomaPedido {
     if (!this.puedeConfirmar()) return;
     this.guardando.set(true);
     try {
-      const usuario = this.usuarioSeleccionado()!;
+      const cliente = this.clienteSeleccionado()!;
       const uuid = await this.pedidoSrv.crearPedido(
-        this.usuarioId()!,
-        usuario.direccion,
+        this.clienteId()!,
+        cliente.direccion,
         this.items().map((i) => ({
           garrafaId: i.garrafa.id,
           // red de seguridad: nunca mandar más que el stock disponible
@@ -341,7 +340,7 @@ export class TomaPedido {
       this.exito.set(uuid);
       this.cantidades.set({});
       this.observaciones.set('');
-      this.usuarioId.set(null);
+      this.clienteId.set(null);
       this.busqueda.set('');
 
       // La replicación se encarga de sincronizar automáticamente

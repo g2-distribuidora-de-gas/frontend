@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { Garrafa, GarrafaRequest, TipoGarrafa } from '../models/garrafa.model';
-import { Usuario } from '../models/usuario.model';
+import { Cliente } from '../models/cliente.model';
 import { RxDatabaseService } from './rx-database.service';
-import { ApiUsuarioService } from './api-usuario.service';
+import { ApiClienteService } from './api-cliente.service';
 import { ApiGarrafaService } from './api-garrafa.service';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -10,7 +10,7 @@ import { map } from 'rxjs/operators';
 @Injectable({ providedIn: 'root' })
 export class CatalogoService {
   private rxDb = inject(RxDatabaseService);
-  private apiUsuario = inject(ApiUsuarioService);
+  private apiCliente = inject(ApiClienteService);
   private apiGarrafa = inject(ApiGarrafaService);
 
   garrafasActivas$(): Observable<Garrafa[]> {
@@ -41,7 +41,7 @@ export class CatalogoService {
     cambios: { precio?: number; stockDisponible?: number },
   ): Promise<void> {
     if (!navigator.onLine) {
-      throw new Error('No se puede editar la garrafa sin conexión.');
+      throw new Error('No se puede editar la garrafa.');
     }
     const doc = await this.rxDb.garrafas.findOne(id).exec();
     if (!doc) throw new Error('Garrafa no encontrada.');
@@ -62,7 +62,7 @@ export class CatalogoService {
 
   async reponerStock(id: string, cantidadAgregar: number): Promise<void> {
     if (!navigator.onLine) {
-      throw new Error('No se puede reponer stock sin conexión.');
+      throw new Error('No se puede reponer stock.');
     }
     const doc = await this.rxDb.garrafas.findOne(id).exec();
     if (!doc) throw new Error('Garrafa no encontrada.');
@@ -80,75 +80,62 @@ export class CatalogoService {
     await doc.patch({ stockDisponible: nuevoStock, updatedAt: new Date().toISOString() });
   }
 
-  async getUsuariosActivos(): Promise<Usuario[]> {
-    const docs = await this.rxDb.usuarios.find({ selector: { activo: true } }).exec();
-    const usuarios = docs.map((d) => d.toJSON() as unknown as Usuario);
-    return usuarios.sort((a, b) => a.apellido.localeCompare(b.apellido));
+  async getClientesActivos(): Promise<Cliente[]> {
+    const docs = await this.rxDb.clientes.find({ selector: { activo: true } }).exec();
+    const clientes = docs.map((d) => d.toJSON() as unknown as Cliente);
+    return clientes.sort((a, b) => this.nombreOrden(a).localeCompare(this.nombreOrden(b)));
   }
 
-  async getUsuariosInactivos(): Promise<Usuario[]> {
-    const docs = await this.rxDb.usuarios.find({ selector: { activo: false } }).exec();
-    const usuarios = docs.map((d) => d.toJSON() as unknown as Usuario);
-    return usuarios.sort((a, b) => a.apellido.localeCompare(b.apellido));
+  async getClientesInactivos(): Promise<Cliente[]> {
+    const docs = await this.rxDb.clientes.find({ selector: { activo: false } }).exec();
+    const clientes = docs.map((d) => d.toJSON() as unknown as Cliente);
+    return clientes.sort((a, b) => this.nombreOrden(a).localeCompare(this.nombreOrden(b)));
   }
 
-  async crearUsuario(datos: Omit<Usuario, 'id' | 'updatedAt' | 'activo'>): Promise<string> {
+  private nombreOrden(c: Cliente): string {
+    return (c.apellido || c.nombre || '').toLowerCase();
+  }
+
+  async crearCliente(
+    datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo' | 'latitud' | 'longitud' | 'placeId'>,
+  ): Promise<string> {
     if (!navigator.onLine) {
-      throw new Error('No se pueden crear usuarios.');
+      throw new Error('No se pueden crear clientes.');
     }
-    const request = {
+
+    const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
+    const resp = await this.apiCliente.crear({
+      nombre: nombreCompleto,
+      telefono: datos.telefono || undefined,
+      direccion: datos.direccion,
+    });
+
+    const local: Cliente = {
+      id: String(resp.id),
       nombre: datos.nombre,
       apellido: datos.apellido,
       dni: datos.dni,
-      telefono: datos.telefono || undefined,
-      direccion: datos.direccion || undefined,
-    };
-    const resp = await this.apiUsuario.crear(request);
-    const local: Usuario = {
-      id: String(resp.id),
-      nombre: resp.nombre,
-      apellido: resp.apellido,
-      dni: resp.dni,
-      telefono: resp.telefono ?? '',
-      direccion: resp.direccion ?? '',
-      activo: resp.activo,
+      telefono: resp.telefono ?? datos.telefono ?? '',
+      direccion: resp.direccion ?? datos.direccion,
+      activo: true,
+      latitud: resp.latitud ?? null,
+      longitud: resp.longitud ?? null,
+      placeId: resp.placeId ?? null,
       updatedAt: new Date().toISOString(),
     };
-    await this.rxDb.usuarios.upsert(local);
+    await this.rxDb.clientes.upsert(local);
     return local.id;
   }
 
-  /** Baja lógica: nunca se borra el registro, solo se marca como inactivo */
-  async darBajaUsuario(id: string): Promise<void> {
-    if (!navigator.onLine) {
-      throw new Error('No se pueden dar de baja usuarios.');
-    }
-    try {
-      await this.apiUsuario.eliminar(Number(id));
-    } catch (e) {
-      console.error('Error dando de baja usuario en backend', e);
-      throw new Error('No se pudo dar de baja el usuario en el servidor.');
-    }
-    const doc = await this.rxDb.usuarios.findOne(id).exec();
-    if (doc) {
-      await doc.patch({ activo: false, updatedAt: new Date().toISOString() });
-    }
+  async darBajaCliente(id: string): Promise<void> {
+    const doc = await this.rxDb.clientes.findOne(id).exec();
+    if (!doc) throw new Error('Cliente no encontrado.');
+    await doc.patch({ activo: false, updatedAt: new Date().toISOString() });
   }
 
-  /** Reactiva un usuario dado de baja */
-  async reactivarUsuario(id: string): Promise<void> {
-    if (!navigator.onLine) {
-      throw new Error('No se pueden reactivar usuarios sin conexión a internet.');
-    }
-    const doc = await this.rxDb.usuarios.findOne(id).exec();
-    if (!doc) throw new Error('Usuario no encontrado.');
-
-    try {
-      await this.apiUsuario.reactivar(Number(id));
-    } catch (e) {
-      console.error('Error reactivando usuario en backend', e);
-      throw new Error('No se pudo reactivar el usuario en el servidor.');
-    }
+  async reactivarCliente(id: string): Promise<void> {
+    const doc = await this.rxDb.clientes.findOne(id).exec();
+    if (!doc) throw new Error('Cliente no encontrado.');
     await doc.patch({ activo: true, updatedAt: new Date().toISOString() });
   }
 }

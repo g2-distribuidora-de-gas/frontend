@@ -20,6 +20,7 @@ export interface GarrafaResponse {
   precio: number;
   stockDisponible: number;
   activo: boolean;
+  updatedAt?: string;
 }
 
 /** DTO para crear garrafa en el backend */

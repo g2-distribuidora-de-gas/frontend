@@ -23,7 +23,7 @@ export class PedidoService {
    * El pedido queda marcado como `sincronizado: false` hasta que se replique al backend.
    */
   async crearPedido(
-    usuarioId: string,
+    clienteId: string,
     direccionEntrega: string,
     items: ItemNuevoPedido[],
     observaciones: string,
@@ -41,7 +41,7 @@ export class PedidoService {
 
     await this.rxDb.pedidos.insert({
       uuidOffline,
-      usuarioId,
+      clienteId,
       direccionEntrega,
       estado: 'PENDIENTE',
       total,
@@ -54,15 +54,14 @@ export class PedidoService {
     return uuidOffline;
   }
 
-  /** Obtiene todos los pedidos con datos resueltos de usuario y garrafa */
   async getPedidos(): Promise<PedidoCompleto[]> {
-    const [pedidoDocs, usuarioDocs, garrafaDocs] = await Promise.all([
+    const [pedidoDocs, clienteDocs, garrafaDocs] = await Promise.all([
       this.rxDb.pedidos.find({ sort: [{ updatedAt: 'desc' }] }).exec(),
-      this.rxDb.usuarios.find().exec(),
+      this.rxDb.clientes.find().exec(),
       this.rxDb.garrafas.find().exec(),
     ]);
 
-    const uMap = new Map(usuarioDocs.map((u) => [u.id, u.toJSON()]));
+    const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
     const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
 
     return pedidoDocs.map((doc) => {
@@ -70,7 +69,7 @@ export class PedidoService {
       return {
         ...p,
         estado: p.estado as EstadoPedido,
-        usuario: uMap.get(p.usuarioId),
+        cliente: cMap.get(p.clienteId),
         detallesResueltos: (p.detalles ?? []).map((d: DetallePedido) => ({
           ...d,
           garrafa: gMap.get(d.garrafaId),
@@ -102,12 +101,12 @@ export class PedidoService {
       .find({ selector: { sincronizado: false } })
       .exec();
 
-    const [usuarioDocs, garrafaDocs] = await Promise.all([
-      this.rxDb.usuarios.find().exec(),
+    const [clienteDocs, garrafaDocs] = await Promise.all([
+      this.rxDb.clientes.find().exec(),
       this.rxDb.garrafas.find().exec(),
     ]);
 
-    const uMap = new Map(usuarioDocs.map((u) => [u.id, u.toJSON()]));
+    const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
     const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
 
     return pedidoDocs.map((doc) => {
@@ -115,7 +114,7 @@ export class PedidoService {
       return {
         ...p,
         estado: p.estado as EstadoPedido,
-        usuario: uMap.get(p.usuarioId),
+        cliente: cMap.get(p.clienteId),
         detallesResueltos: (p.detalles ?? []).map((d: DetallePedido) => ({
           ...d,
           garrafa: gMap.get(d.garrafaId),

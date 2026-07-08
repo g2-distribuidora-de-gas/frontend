@@ -1,5 +1,5 @@
-import type { Garrafa, GarrafaResponse } from './garrafa.model';
-import type { Usuario, UsuarioResponse } from './usuario.model';
+import type { Cliente } from './cliente.model';
+import type { Garrafa } from './garrafa.model';
 
 /** Estados alineados con el enum EstadoPedido del backend */
 export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO';
@@ -24,9 +24,10 @@ export interface DetallePedido {
 export interface Pedido {
   uuidOffline: string;
   backendId?: number;
-  usuarioId: string;
+  clienteId: string;
   direccionEntrega: string;
   estado: EstadoPedido;
+  urlFotoEvidencia?: string;
   total: number;
   observaciones: string;
   sincronizado: boolean;
@@ -36,7 +37,7 @@ export interface Pedido {
 
 /** Modelo enriquecido para la UI — con datos resueltos de las relaciones */
 export interface PedidoCompleto extends Pedido {
-  usuario?: Usuario;
+  cliente?: Cliente;
   detallesResueltos: (DetallePedido & { garrafa?: Garrafa })[];
 }
 
@@ -49,8 +50,9 @@ export interface PedidoDetalleRequest {
 
 export interface PedidoRequest {
   uuidOffline?: string;
-  usuarioId: number;
+  clienteId: number;
   direccionEntrega: string;
+  urlFotoEvidencia?: string;
   detalles: PedidoDetalleRequest[];
 }
 
@@ -66,10 +68,11 @@ export interface PedidoDetalleResponse {
 export interface PedidoResponse {
   id: number;
   uuidOffline: string;
-  usuarioId: number;
-  usuarioNombreCompleto: string;
+  clienteId: number;
+  clienteNombre: string;
   direccionEntrega: string;
   estado: EstadoPedido;
+  urlFotoEvidencia?: string;
   total: number;
   createdAt: string;
   updatedAt: string;
@@ -101,6 +104,8 @@ export interface SincronizacionResponse {
 }
 
 export interface SincronizacionEstadoResponse {
-  encontrados: string[];
+  totalConsultados: number;
+  encontrados: number;
+  procesados: string[];
   noEncontrados: string[];
 }

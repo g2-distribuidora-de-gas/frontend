@@ -9,7 +9,7 @@ import {
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
-import { usuarioSchema, UsuarioDocType } from '../schemas/usuario.schema';
+import { clienteSchema, ClienteDocType } from '../schemas/cliente.schema';
 import { garrafaSchema, GarrafaDocType } from '../schemas/garrafa.schema';
 import { pedidoSchema, PedidoDocType } from '../schemas/pedido.schema';
 import { environment } from '../../environments/environment';
@@ -31,7 +31,7 @@ export const ESTADOS: EstadoInfo[] = [
 
 
 export type AppCollections = {
-  usuarios: RxCollection<UsuarioDocType>;
+  clientes: RxCollection<ClienteDocType>;
   garrafas: RxCollection<GarrafaDocType>;
   pedidos: RxCollection<PedidoDocType>;
 };
@@ -47,8 +47,8 @@ export class RxDatabaseService {
     return this._db;
   }
 
-  get usuarios(): RxCollection<UsuarioDocType> {
-    return this._db.usuarios;
+  get clientes(): RxCollection<ClienteDocType> {
+    return this._db.clientes;
   }
 
   get garrafas(): RxCollection<GarrafaDocType> {
@@ -80,14 +80,18 @@ export class RxDatabaseService {
       ? wrappedValidateAjvStorage({ storage: baseStorage })
       : baseStorage;
 
+    // Nota: el nombre cambia a "-v2" porque el modelo de datos se modifico
+    // (el pedido ahora referencia clienteId y existe la coleccion `clientes`).
+    // Con un nombre nuevo se crea una base limpia y se evita el conflicto de
+    // esquema de RxDB; los datos se re-obtienen del backend via replicacion.
     this._db = await createRxDatabase<AppCollections>({
-      name: 'distribuidora-gas-rxdb',
+      name: 'distribuidora-gas-rxdb-v2',
       storage,
       ignoreDuplicate: true,
     });
 
     await this._db.addCollections({
-      usuarios: { schema: usuarioSchema },
+      clientes: { schema: clienteSchema },
       garrafas: { schema: garrafaSchema },
       pedidos: { schema: pedidoSchema },
     });
@@ -95,21 +99,31 @@ export class RxDatabaseService {
     console.log('[RxDatabaseService] Base de datos inicializada con colecciones:', Object.keys(this._db.collections));
   }
 
-  /** Elimina la base Dexie antigua para evitar conflictos */
+
   private async limpiarDexieAntigua(): Promise<void> {
+
     try {
       const databases = await indexedDB.databases();
-      const dexieDb = databases.find((db) => db.name === 'distribuidora-gas');
-      if (dexieDb) {
+      const obsoletas = databases.filter((db) => {
+        const nombre = db.name ?? '';
+
+        return (
+          (nombre.includes('distribuidora-gas') && !nombre.includes('-rxdb-v2')) &&
+          !nombre.includes('rxdb-dexie--distribuidora-gas-rxdb-v2')
+        );
+      });
+      for (const dexieDb of obsoletas) {
+        if (!dexieDb.name) continue;
+        const nombreBase = dexieDb.name;
         await new Promise<void>((resolve, reject) => {
-          const req = indexedDB.deleteDatabase('distribuidora-gas');
+          const req = indexedDB.deleteDatabase(nombreBase);
           req.onsuccess = () => {
-            console.log('[RxDatabaseService] Base Dexie antigua eliminada.');
+            console.log(`[RxDatabaseService] Base local antigua eliminada: ${nombreBase}`);
             resolve();
           };
           req.onerror = () => reject(req.error);
           req.onblocked = () => {
-            console.warn('[RxDatabaseService] Eliminación de Dexie bloqueada.');
+            console.warn(`[RxDatabaseService] Eliminación bloqueada: ${nombreBase}`);
             resolve();
           };
         });
