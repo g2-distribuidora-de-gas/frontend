@@ -6,10 +6,11 @@ import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models';
 import { nombreGarrafa, TipoGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
 import { EstadoInfo } from '../../services/rx-database.service';
+import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 
 @Component({
   selector: 'app-pedidos',
-  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe],
+  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe, MapaVista],
   templateUrl: './pedidos.html',
 })
 export class Pedidos {
@@ -48,6 +49,16 @@ export class Pedidos {
 
   protected alternar(uuid: string): void {
     this.expandido.set(this.expandido() === uuid ? null : uuid);
+  }
+
+  protected tieneUbicacion(p: PedidoCompleto): boolean {
+    return p.cliente?.latitud != null && p.cliente?.longitud != null;
+  }
+
+  protected mapsUrl(p: PedidoCompleto): string {
+    const lat = p.cliente?.latitud;
+    const lng = p.cliente?.longitud;
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   }
 
   protected async cambiarEstado(pedido: PedidoCompleto, estado: EstadoPedido): Promise<void> {

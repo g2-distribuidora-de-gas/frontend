@@ -9,10 +9,11 @@ import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
 import { ReplicationService } from '../../services/replication.service';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { MapaPicker, UbicacionSeleccionada } from '../../components/mapa-picker/mapa-picker';
 
 @Component({
   selector: 'app-toma-pedido',
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, DecimalPipe, MapaPicker],
   templateUrl: './toma-pedido.html',
 })
 export class TomaPedido {
@@ -109,6 +110,14 @@ export class TomaPedido {
 
   protected mostrarFormCliente = signal(false);
   protected nuevoCliente = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+  protected nuevoClienteUbicacion = signal<UbicacionSeleccionada | null>(null);
+
+  protected onUbicacionCliente(u: UbicacionSeleccionada): void {
+    this.nuevoClienteUbicacion.set(u);
+    if (u.direccion && !this.nuevoCliente().direccion.trim()) {
+      this.nuevoCliente.update((n) => ({ ...n, direccion: u.direccion! }));
+    }
+  }
 
   protected campoCliente(campo: 'nombre' | 'apellido' | 'dni' | 'telefono' | 'direccion', valor: string): void {
     if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 10);
@@ -159,6 +168,7 @@ export class TomaPedido {
   protected async guardarCliente(): Promise<void> {
     if (!this.validarNuevoCliente()) return;
     const n = this.nuevoCliente();
+    const u = this.nuevoClienteUbicacion();
     try {
       const id = await this.catalogo.crearCliente({
         nombre: n.nombre.trim(),
@@ -166,10 +176,14 @@ export class TomaPedido {
         dni: n.dni.trim(),
         telefono: n.telefono.trim(),
         direccion: n.direccion.trim(),
+        latitud: u ? u.lat : null,
+        longitud: u ? u.lng : null,
+        placeId: u ? (u.placeId ?? null) : null,
       });
       await this.recargarClientes();
       this.clienteId.set(id);
       this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+      this.nuevoClienteUbicacion.set(null);
       this.mostrarFormCliente.set(false);
       this.toast.exito('Cliente guardado.');
     } catch (e: any) {

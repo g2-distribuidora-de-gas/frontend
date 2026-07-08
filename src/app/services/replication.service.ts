@@ -49,7 +49,7 @@ export class ReplicationService {
       collection: this.rxDb.clientes,
       replicationIdentifier: 'clientes-pull-replication',
       autoStart: true,
-      retryTime: 10_000,
+      retryTime: 1_000,
 
       pull: {
         batchSize: 200,
@@ -70,9 +70,11 @@ export class ReplicationService {
                   telefono: c.telefono ?? existente?.telefono ?? '',
                   direccion: c.direccion ?? existente?.direccion ?? '',
                   activo: existente?.activo ?? true,
-                  latitud: c.latitud ?? null,
-                  longitud: c.longitud ?? null,
-                  placeId: c.placeId ?? null,
+                  // Preservamos las coordenadas locales (marcadas en el mapa) si el
+                  // backend todavía no las devuelve, para que un null no las pise.
+                  latitud: c.latitud ?? existente?.latitud ?? null,
+                  longitud: c.longitud ?? existente?.longitud ?? null,
+                  placeId: c.placeId ?? existente?.placeId ?? null,
                   updatedAt: new Date().toISOString(),
                   _deleted: false as const,
                 };
@@ -109,7 +111,7 @@ export class ReplicationService {
       collection: this.rxDb.garrafas,
       replicationIdentifier: 'garrafas-pull-replication',
       autoStart: true,
-      retryTime: 10_000,
+      retryTime: 1_000,
 
       pull: {
         batchSize: 100,
@@ -157,7 +159,7 @@ export class ReplicationService {
       collection: this.rxDb.pedidos,
       replicationIdentifier: 'pedidos-replication',
       autoStart: true,
-      retryTime: 10_000,
+      retryTime: 1_000,
 
       pull: {
         batchSize: 100,

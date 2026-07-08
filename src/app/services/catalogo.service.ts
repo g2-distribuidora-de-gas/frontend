@@ -97,7 +97,7 @@ export class CatalogoService {
   }
 
   async crearCliente(
-    datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo' | 'latitud' | 'longitud' | 'placeId'>,
+    datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo'>,
   ): Promise<string> {
     if (!navigator.onLine) {
       throw new Error('No se pueden crear clientes.');
@@ -118,9 +118,9 @@ export class CatalogoService {
       telefono: resp.telefono ?? datos.telefono ?? '',
       direccion: resp.direccion ?? datos.direccion,
       activo: true,
-      latitud: resp.latitud ?? null,
-      longitud: resp.longitud ?? null,
-      placeId: resp.placeId ?? null,
+      latitud: datos.latitud ?? resp.latitud ?? null,
+      longitud: datos.longitud ?? resp.longitud ?? null,
+      placeId: datos.placeId ?? resp.placeId ?? null,
       updatedAt: new Date().toISOString(),
     };
     await this.rxDb.clientes.upsert(local);
