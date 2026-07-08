@@ -1,0 +1,388 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-brand-900">Nuevo pedido</h1>
+    <p class="text-sm text-brand-700/70">Seleccioná el cliente, las garrafas y confirmá.</p>
+  </div>
+
+  @if (exito(); as uuid) {
+    <div class="flex flex-col items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-sm font-medium text-green-800">✓ Pedido registrado correctamente.</p>
+      <div class="flex gap-2">
+        <button (click)="verPedidos()" class="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">Ver pedidos</button>
+        <button (click)="exito.set(null)" class="rounded-lg border border-green-300 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100">Cargar otro</button>
+      </div>
+    </div>
+  }
+
+  <div class="grid gap-6 lg:grid-cols-5">
+    <div class="space-y-6 lg:col-span-3">
+      <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="flex items-center gap-2 font-semibold text-brand-900">
+            <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
+            Cliente
+          </h2>
+          <button
+            (click)="mostrarFormCliente.set(!mostrarFormCliente())"
+            class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+          >{{ mostrarFormCliente() ? 'Cancelar' : '+ Nuevo cliente' }}</button>
+        </div>
+
+        @if (mostrarFormCliente()) {
+          <div class="mb-3 grid gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3 sm:grid-cols-2">
+            <input
+              type="text"
+              placeholder="Nombre *"
+              [ngModel]="nuevoCliente().nombre"
+              (keydown)="sinDigitos($event)"
+              (ngModelChange)="campoCliente('nombre', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <input
+              type="text"
+              placeholder="Apellido *"
+              [ngModel]="nuevoCliente().apellido"
+              (keydown)="sinDigitos($event)"
+              (ngModelChange)="campoCliente('apellido', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <input
+              type="text"
+              placeholder="DNI *"
+              maxlength="10"
+              inputmode="numeric"
+              [ngModel]="nuevoCliente().dni"
+              (keydown)="soloDigitos($event)"
+              (paste)="pegarSoloDigitos($event, 'dni')"
+              (ngModelChange)="campoCliente('dni', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <input
+              type="tel"
+              placeholder="Teléfono * (8 a 10 dígitos)"
+              maxlength="10"
+              minlength="8"
+              inputmode="numeric"
+              [ngModel]="nuevoCliente().telefono"
+              (keydown)="soloDigitos($event)"
+              (paste)="pegarSoloDigitos($event, 'telefono')"
+              (ngModelChange)="campoCliente('telefono', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <input
+              type="text"
+              placeholder="Dirección *"
+              [ngModel]="nuevoCliente().direccion"
+              (ngModelChange)="campoCliente('direccion', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 sm:col-span-2"
+            />
+            <button
+              (click)="guardarCliente()"
+              class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 sm:col-span-2"
+            >Guardar cliente</button>
+          </div>
+        }
+
+        <input
+          type="search"
+          [ngModel]="busqueda()"
+          (ngModelChange)="busqueda.set($event)"
+          placeholder="Buscar por nombre, DNI o dirección…"
+          class="mb-3 w-full rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+        />
+        <ul class="max-h-56 space-y-2 overflow-y-auto pr-1">
+          @for (c of clientesFiltrados(); track c.id) {
+            <li class="flex items-stretch gap-2">
+              <button
+                (click)="seleccionarCliente(c)"
+                class="min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-left transition-colors"
+                [class]="clienteId() === c.id
+                  ? 'border-brand-500 bg-brand-100 ring-1 ring-brand-400'
+                  : 'border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50'"
+              >
+                <span class="block truncate text-sm font-semibold">{{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }}</span>
+                <span class="block truncate text-xs text-brand-700/70">DNI: {{ c.dni }} · {{ c.direccion }} · {{ c.telefono }}</span>
+              </button>
+              <button
+                (click)="darBajaCliente(c)"
+                class="grid w-10 shrink-0 place-items-center rounded-xl border border-brand-100 text-brand-700/40 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                [attr.aria-label]="'Dar de baja a ' + c.nombre + ' ' + c.apellido"
+                title="Dar de baja"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </button>
+            </li>
+          } @empty {
+            <li class="py-3 text-center text-sm text-brand-700/60">No se encontraron clientes.</li>
+          }
+        </ul>
+
+        @if (clientesInactivos().length > 0) {
+          <div class="mt-3 border-t border-brand-100 pt-3">
+            <button
+              (click)="mostrarInactivos.set(!mostrarInactivos())"
+              class="text-xs font-semibold text-brand-700/60 transition-colors hover:text-brand-700"
+            >{{ mostrarInactivos() ? '▾' : '▸' }} Dados de baja ({{ clientesInactivos().length }})</button>
+            @if (mostrarInactivos()) {
+              <ul class="mt-2 space-y-2">
+                @for (c of clientesInactivos(); track c.id) {
+                  <li class="flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-2.5 opacity-70">
+                    <div class="min-w-0 flex-1">
+                      <span class="block truncate text-sm font-semibold line-through">{{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }}</span>
+                      <span class="block truncate text-xs text-brand-700/70">DNI: {{ c.dni }} · {{ c.direccion }}</span>
+                    </div>
+                    <button
+                      (click)="reactivarCliente(c)"
+                      class="shrink-0 rounded-lg border border-green-300 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50"
+                    >Reactivar</button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </section>
+
+      <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="flex items-center gap-2 font-semibold text-brand-900">
+            <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
+            Garrafas
+          </h2>
+          <div class="flex items-center gap-2">
+            @if (garrafas().length > 0) {
+              <button
+                (click)="toggleFormEditar()"
+                class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+              >{{ mostrarFormEditar() ? 'Cancelar' : 'Editar' }}</button>
+            }
+            @if (tiposDisponibles().length > 0) {
+              <button
+                (click)="mostrarFormGarrafa.set(!mostrarFormGarrafa())"
+                class="rounded-full border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+              >{{ mostrarFormGarrafa() ? 'Cancelar' : '+ Nueva garrafa' }}</button>
+            }
+          </div>
+        </div>
+
+        @if (mostrarFormEditar()) {
+          <div class="mb-3 grid gap-3 rounded-xl border border-brand-200 bg-brand-50 p-3">
+            <select
+              [ngModel]="editarId()"
+              (ngModelChange)="seleccionarEditar($event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+            >
+              <option [ngValue]="null" disabled>Elegí una garrafa para editar…</option>
+              @for (g of garrafas(); track g.id) {
+                <option [ngValue]="g.id">{{ nombreGarrafa(g.tipo) }} — $ {{ g.precio | number: '1.0-0' }} · stock {{ g.stockDisponible }}</option>
+              }
+            </select>
+
+            @if (garrafaEnEdicion(); as g) {
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block text-sm">
+                  <span class="mb-1 block font-medium text-brand-700">Precio</span>
+                  <input
+                    type="number"
+                    min="1"
+                    inputmode="numeric"
+                    [ngModel]="editPrecio()"
+                    (ngModelChange)="editPrecio.set($event)"
+                    class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+                  />
+                </label>
+
+                <div class="text-sm">
+                  <span class="mb-1 block font-medium text-brand-700">Stock</span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      (click)="ajustarEditStock(-1)"
+                      [disabled]="editStock() === 0"
+                      class="grid h-9 w-9 place-items-center rounded-full border border-brand-300 text-lg font-bold text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-30"
+                      aria-label="Quitar stock"
+                    >−</button>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputmode="numeric"
+                      (keydown)="bloquearNoEnteros($event)"
+                      [ngModel]="editStock()"
+                      (ngModelChange)="setEditStock($event)"
+                      class="w-20 rounded-lg border border-brand-200 bg-white py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-brand-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      (click)="ajustarEditStock(1)"
+                      class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-lg font-bold text-white transition-colors hover:bg-brand-600"
+                      aria-label="Agregar stock"
+                    >+</button>
+                  </div>
+                  <span class="mt-1 block text-xs text-brand-700/60">Actual: {{ g.stockDisponible }}</span>
+                </div>
+              </div>
+
+              <button
+                (click)="guardarEdicion()"
+                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
+              >Guardar cambios</button>
+            }
+          </div>
+        }
+
+        @if (mostrarFormGarrafa()) {
+          <div class="mb-3 grid gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3 sm:grid-cols-3">
+            <select
+              [ngModel]="nuevaGarrafa().tipo"
+              (ngModelChange)="campoGarrafa('tipo', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+            >
+              <option value="" disabled>Tipo *</option>
+              @for (t of tiposDisponibles(); track t) {
+                <option [value]="t">{{ nombreGarrafa(t) }}</option>
+              }
+            </select>
+            <input
+              type="number"
+              min="1"
+              placeholder="Precio *"
+              inputmode="numeric"
+              [ngModel]="nuevaGarrafa().precio"
+              (ngModelChange)="campoGarrafa('precio', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Stock *"
+              inputmode="numeric"
+              (keydown)="bloquearNoEnteros($event)"
+              [ngModel]="nuevaGarrafa().stock"
+              (ngModelChange)="campoGarrafa('stock', $event)"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+            />
+            <button
+              (click)="guardarGarrafa()"
+              class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 sm:col-span-3"
+            >Guardar garrafa</button>
+          </div>
+        }
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          @for (g of garrafas(); track g.id) {
+            <div
+              class="rounded-xl border p-4 transition-colors"
+              [class]="sinStock(g)
+                ? 'border-red-100 bg-red-50/40'
+                : (cantidadDe(g) > 0 ? 'border-brand-400 bg-brand-50' : 'border-brand-100')"
+            >
+              <div class="mb-1 flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-semibold leading-tight">{{ nombreGarrafa(g.tipo) }}</p>
+                  <p class="text-xs uppercase tracking-wide text-brand-700/60">{{ g.tipo }} · {{ g.capacidadKg }} kg</p>
+                </div>
+                @if (sinStock(g)) {
+                  <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">Sin stock</span>
+                } @else if (g.stockDisponible !== undefined) {
+                  <span class="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">Stock: {{ g.stockDisponible }}</span>
+                }
+              </div>
+              <p class="mb-3 text-lg font-bold text-brand-800">$ {{ g.precio | number: '1.0-0' }}</p>
+
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <button
+                    (click)="ajustar(g, -1)"
+                    [disabled]="cantidadDe(g) === 0"
+                    class="grid h-9 w-9 place-items-center rounded-full border border-brand-300 text-lg font-bold text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-30"
+                    aria-label="Quitar uno"
+                  >−</button>
+                  <input
+                    #qty
+                    type="number"
+                    min="0"
+                    [max]="stockDe(g)"
+                    step="1"
+                    inputmode="numeric"
+                    [disabled]="sinStock(g)"
+                    (keydown)="bloquearNoEnteros($event)"
+                    [value]="cantidadDe(g)"
+                    (input)="setCantidad(g, qty)"
+                    [attr.aria-label]="'Cantidad de ' + nombreGarrafa(g.tipo)"
+                    class="w-14 rounded-lg border border-brand-200 bg-white py-1 text-center text-lg font-bold tabular-nums outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                  <button
+                    (click)="ajustar(g, 1)"
+                    [disabled]="cantidadDe(g) >= stockDe(g)"
+                    class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-lg font-bold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Agregar uno"
+                  >+</button>
+                </div>
+                @if (cantidadDe(g) > 0) {
+                  <span class="text-sm font-semibold text-brand-800">$ {{ cantidadDe(g) * g.precio | number: '1.0-0' }}</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 class="mb-3 flex items-center gap-2 font-semibold text-brand-900">
+          <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">3</span>
+          Observaciones
+        </h2>
+        <textarea
+          rows="2"
+          [ngModel]="observaciones()"
+          (ngModelChange)="observaciones.set($event)"
+          placeholder="Ej.: entregar por la tarde, timbre roto…"
+          class="w-full resize-none rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+        ></textarea>
+      </section>
+    </div>
+
+    <aside class="lg:col-span-2">
+      <div class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-20">
+        <h2 class="mb-3 font-semibold text-brand-900">Resumen</h2>
+
+        @if (clienteSeleccionado(); as c) {
+          <p class="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm">
+            <span class="font-semibold">{{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }}</span>
+            <span class="block text-xs text-brand-700/70">DNI: {{ c.dni }} · {{ c.direccion }}</span>
+          </p>
+        } @else {
+          <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-2 text-sm text-brand-700/60">Sin cliente seleccionado</p>
+        }
+
+        @if (items().length > 0) {
+          <ul class="mb-3 divide-y divide-brand-100 text-sm">
+            @for (i of items(); track i.garrafa.id) {
+              <li class="flex items-center justify-between py-2">
+                <span>{{ i.cantidad }} × {{ nombreGarrafa(i.garrafa.tipo) }}</span>
+                <span class="font-medium tabular-nums">$ {{ i.subtotal | number: '1.0-0' }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-4 text-center text-sm text-brand-700/60">Agregá garrafas al pedido</p>
+        }
+
+        <div class="mb-4 flex items-center justify-between border-t border-brand-200 pt-3">
+          <span class="font-semibold">Total</span>
+          <span class="text-xl font-bold text-brand-800 tabular-nums">$ {{ total() | number: '1.0-0' }}</span>
+        </div>
+
+        <button
+          (click)="confirmar()"
+          [disabled]="!puedeConfirmar()"
+          class="w-full rounded-xl bg-brand-500 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {{ guardando() ? 'Guardando…' : 'Confirmar pedido' }}
+        </button>
+      </div>
+    </aside>
+  </div>
+</div>

@@ -1,0 +1,141 @@
+import { Injectable, inject } from '@angular/core';
+import { Garrafa, GarrafaRequest, TipoGarrafa } from '../models/garrafa.model';
+import { Cliente } from '../models/cliente.model';
+import { RxDatabaseService } from './rx-database.service';
+import { ApiClienteService } from './api-cliente.service';
+import { ApiGarrafaService } from './api-garrafa.service';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+@Injectable({ providedIn: 'root' })
+export class CatalogoService {
+  private rxDb = inject(RxDatabaseService);
+  private apiCliente = inject(ApiClienteService);
+  private apiGarrafa = inject(ApiGarrafaService);
+
+  garrafasActivas$(): Observable<Garrafa[]> {
+    return this.rxDb.garrafas
+      .find({ selector: { activo: true } })
+      .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa)));
+  }
+
+  async crearGarrafa(datos: GarrafaRequest): Promise<string> {
+    if (!navigator.onLine) {
+      throw new Error('No se pueden crear garrafas.');
+    }
+    const resp = await this.apiGarrafa.crear({ ...datos, activo: true });
+    const local: Garrafa = {
+      id: String(resp.id),
+      tipo: resp.tipo,
+      capacidadKg: resp.capacidadKg,
+      precio: resp.precio,
+      stockDisponible: resp.stockDisponible,
+      activo: resp.activo,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.rxDb.garrafas.upsert(local);
+    return local.id;
+  }
+  async editarGarrafa(
+    id: string,
+    cambios: { precio?: number; stockDisponible?: number },
+  ): Promise<void> {
+    if (!navigator.onLine) {
+      throw new Error('No se puede editar la garrafa.');
+    }
+    const doc = await this.rxDb.garrafas.findOne(id).exec();
+    if (!doc) throw new Error('Garrafa no encontrada.');
+
+    const precio = cambios.precio ?? doc.precio;
+    const stockDisponible = cambios.stockDisponible ?? doc.stockDisponible ?? 0;
+
+    await this.apiGarrafa.actualizar(Number(id), {
+      tipo: doc.tipo as TipoGarrafa,
+      capacidadKg: doc.capacidadKg,
+      precio,
+      stockDisponible,
+      activo: doc.activo,
+    });
+
+    await doc.patch({ precio, stockDisponible, updatedAt: new Date().toISOString() });
+  }
+
+  async reponerStock(id: string, cantidadAgregar: number): Promise<void> {
+    if (!navigator.onLine) {
+      throw new Error('No se puede reponer stock.');
+    }
+    const doc = await this.rxDb.garrafas.findOne(id).exec();
+    if (!doc) throw new Error('Garrafa no encontrada.');
+
+    const nuevoStock = (doc.stockDisponible ?? 0) + cantidadAgregar;
+
+    await this.apiGarrafa.actualizar(Number(id), {
+      tipo: doc.tipo as TipoGarrafa,
+      capacidadKg: doc.capacidadKg,
+      precio: doc.precio,
+      stockDisponible: nuevoStock,
+      activo: doc.activo,
+    });
+
+    await doc.patch({ stockDisponible: nuevoStock, updatedAt: new Date().toISOString() });
+  }
+
+  async getClientesActivos(): Promise<Cliente[]> {
+    const docs = await this.rxDb.clientes.find({ selector: { activo: true } }).exec();
+    const clientes = docs.map((d) => d.toJSON() as unknown as Cliente);
+    return clientes.sort((a, b) => this.nombreOrden(a).localeCompare(this.nombreOrden(b)));
+  }
+
+  async getClientesInactivos(): Promise<Cliente[]> {
+    const docs = await this.rxDb.clientes.find({ selector: { activo: false } }).exec();
+    const clientes = docs.map((d) => d.toJSON() as unknown as Cliente);
+    return clientes.sort((a, b) => this.nombreOrden(a).localeCompare(this.nombreOrden(b)));
+  }
+
+  private nombreOrden(c: Cliente): string {
+    return (c.apellido || c.nombre || '').toLowerCase();
+  }
+
+  async crearCliente(
+    datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo' | 'latitud' | 'longitud' | 'placeId'>,
+  ): Promise<string> {
+    if (!navigator.onLine) {
+      throw new Error('No se pueden crear clientes.');
+    }
+
+    const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
+    const resp = await this.apiCliente.crear({
+      nombre: nombreCompleto,
+      telefono: datos.telefono || undefined,
+      direccion: datos.direccion,
+    });
+
+    const local: Cliente = {
+      id: String(resp.id),
+      nombre: datos.nombre,
+      apellido: datos.apellido,
+      dni: datos.dni,
+      telefono: resp.telefono ?? datos.telefono ?? '',
+      direccion: resp.direccion ?? datos.direccion,
+      activo: true,
+      latitud: resp.latitud ?? null,
+      longitud: resp.longitud ?? null,
+      placeId: resp.placeId ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.rxDb.clientes.upsert(local);
+    return local.id;
+  }
+
+  async darBajaCliente(id: string): Promise<void> {
+    const doc = await this.rxDb.clientes.findOne(id).exec();
+    if (!doc) throw new Error('Cliente no encontrado.');
+    await doc.patch({ activo: false, updatedAt: new Date().toISOString() });
+  }
+
+  async reactivarCliente(id: string): Promise<void> {
+    const doc = await this.rxDb.clientes.findOne(id).exec();
+    if (!doc) throw new Error('Cliente no encontrado.');
+    await doc.patch({ activo: true, updatedAt: new Date().toISOString() });
+  }
+}

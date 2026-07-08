@@ -1,12 +1,41 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
+import { ToastService } from './services/toast.service';
+import { ReplicationService } from './services/replication.service';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app.html',
-  styleUrl: './app.css'
 })
 export class App {
-  protected readonly title = signal('ui-distribuidora-gas');
+  protected readonly online = signal(navigator.onLine);
+  protected readonly toast = inject(ToastService);
+  protected readonly auth = inject(AuthService);
+  private readonly replication = inject(ReplicationService);
+  private readonly router = inject(Router);
+
+  protected readonly enLogin = signal(this.router.url.startsWith('/login'));
+
+  constructor() {
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => this.enLogin.set(e.urlAfterRedirects.startsWith('/login')));
+
+    window.addEventListener('online', () => {
+      this.online.set(true);
+
+      this.replication.resincronizar();
+    });
+    window.addEventListener('offline', () => this.online.set(false));
+  }
+
+  protected async cerrarSesion(): Promise<void> {
+
+    await this.replication.cancelar();
+    this.auth.logout();
+    await this.router.navigate(['/login']);
+  }
 }

@@ -1,0 +1,13 @@
+{
+  "name": "Distribuidora de Gas - Pedidos",
+  "short_name": "GasPedidos",
+  "theme_color": "#d4a233",
+  "background_color": "#fdfaf1",
+  "display": "standalone",
+  "scope": "./",
+  "start_url": "./",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
