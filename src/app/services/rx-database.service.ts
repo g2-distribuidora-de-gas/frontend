@@ -43,6 +43,8 @@ export class RxDatabaseService {
   private injector = inject(Injector);
   private _db!: AppDatabase;
 
+  private static pluginsListos = false;
+
   get db(): AppDatabase {
     return this._db;
   }
@@ -67,9 +69,9 @@ export class RxDatabaseService {
   async init(): Promise<void> {
     if (this._db) return;
 
-    // Activar dev-mode solo en desarrollo para validaciones extra
-    if (!environment.production) {
+    if (!environment.production && !RxDatabaseService.pluginsListos) {
       addRxPlugin(RxDBDevModePlugin);
+      RxDatabaseService.pluginsListos = true;
     }
 
     // Borrar la base Dexie vieja si existía
@@ -97,6 +99,18 @@ export class RxDatabaseService {
     });
 
     console.log('[RxDatabaseService] Base de datos inicializada con colecciones:', Object.keys(this._db.collections));
+  }
+
+  async reinicializar(): Promise<void> {
+    if (this._db) {
+      try {
+        await this._db.close();
+      } catch {
+      }
+    }
+    this._db = undefined as unknown as AppDatabase;
+    await this.init();
+    console.log('[RxDatabaseService] Base de datos reinicializada.');
   }
 
 

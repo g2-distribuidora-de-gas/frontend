@@ -49,7 +49,7 @@ export class ReplicationService {
       collection: this.rxDb.clientes,
       replicationIdentifier: 'clientes-pull-replication',
       autoStart: true,
-      retryTime: 1_000,
+      retryTime: 10_000,
 
       pull: {
         batchSize: 200,
@@ -57,29 +57,28 @@ export class ReplicationService {
           try {
             const respuesta = await this.apiCliente.listarTodos();
 
+          
+            const existentesDocs = await this.rxDb.clientes.find().exec();
+            const existentes = new Map(existentesDocs.map((d) => [d.id, d]));
 
-            const documents = await Promise.all(
-              respuesta.map(async (c) => {
-                const id = String(c.id);
-                const existente = await this.rxDb.clientes.findOne(id).exec();
-                return {
-                  id,
-                  nombre: existente?.nombre ?? c.nombre,
-                  apellido: existente?.apellido ?? '',
-                  dni: existente?.dni ?? '',
-                  telefono: c.telefono ?? existente?.telefono ?? '',
-                  direccion: c.direccion ?? existente?.direccion ?? '',
-                  activo: existente?.activo ?? true,
-                  // Preservamos las coordenadas locales (marcadas en el mapa) si el
-                  // backend todavía no las devuelve, para que un null no las pise.
-                  latitud: c.latitud ?? existente?.latitud ?? null,
-                  longitud: c.longitud ?? existente?.longitud ?? null,
-                  placeId: c.placeId ?? existente?.placeId ?? null,
-                  updatedAt: new Date().toISOString(),
-                  _deleted: false as const,
-                };
-              }),
-            );
+            const documents = respuesta.map((c) => {
+              const id = String(c.id);
+              const ex = existentes.get(id);
+              return {
+                id,
+                nombre: ex?.nombre ?? c.nombre,
+                apellido: ex?.apellido ?? '',
+                dni: ex?.dni ?? '',
+                telefono: c.telefono ?? ex?.telefono ?? '',
+                direccion: c.direccion ?? ex?.direccion ?? '',
+                activo: ex?.activo ?? true,
+                latitud: c.latitud ?? ex?.latitud ?? null,
+                longitud: c.longitud ?? ex?.longitud ?? null,
+                placeId: c.placeId ?? ex?.placeId ?? null,
+                updatedAt: new Date().toISOString(),
+                _deleted: false as const,
+              };
+            });
 
             const checkpoint: ReplicationCheckpoint = documents.length > 0
               ? { updatedAt: documents[documents.length - 1].updatedAt, id: documents[documents.length - 1].id }
@@ -111,7 +110,7 @@ export class ReplicationService {
       collection: this.rxDb.garrafas,
       replicationIdentifier: 'garrafas-pull-replication',
       autoStart: true,
-      retryTime: 1_000,
+      retryTime: 10_000,
 
       pull: {
         batchSize: 100,
@@ -159,7 +158,7 @@ export class ReplicationService {
       collection: this.rxDb.pedidos,
       replicationIdentifier: 'pedidos-replication',
       autoStart: true,
-      retryTime: 1_000,
+      retryTime: 10_000,
 
       pull: {
         batchSize: 100,
@@ -169,37 +168,38 @@ export class ReplicationService {
               this.http.get<any[]>('/api/pedidos'),
             );
 
-            const documents = await Promise.all(
-              respuesta.map(async (p: any) => {
-                let uuidOffline: string = p.uuidOffline;
-                if (!uuidOffline) {
-                  const existente = await this.rxDb.pedidos
-                    .findOne({ selector: { backendId: p.id } })
-                    .exec();
-                  uuidOffline = existente?.uuidOffline ?? crypto.randomUUID();
-                }
+            const existentesDocs = await this.rxDb.pedidos.find().exec();
+            const porBackendId = new Map<number, PedidoDocType>();
+            for (const d of existentesDocs) {
+              if (d.backendId != null) porBackendId.set(d.backendId, d.toJSON() as PedidoDocType);
+            }
 
-                return {
-                  uuidOffline,
-                  backendId: p.id,
-                  clienteId: String(p.clienteId),
-                  direccionEntrega: p.direccionEntrega ?? '',
-                  estado: p.estado,
-                  urlFotoEvidencia: p.urlFotoEvidencia ?? '',
-                  total: p.total,
-                  observaciones: p.observaciones ?? '',
-                  sincronizado: true,
-                  detalles: (p.detalles ?? []).map((d: any) => ({
-                    garrafaId: String(d.garrafaId),
-                    cantidad: d.cantidad,
-                    precioUnitario: d.precioUnitario,
-                    subtotal: d.subtotal,
-                  })),
-                  updatedAt: p.updatedAt ?? p.createdAt ?? new Date().toISOString(),
-                  _deleted: false as const,
-                };
-              }),
-            );
+            const documents = respuesta.map((p: any) => {
+              let uuidOffline: string = p.uuidOffline;
+              if (!uuidOffline) {
+                uuidOffline = porBackendId.get(p.id)?.uuidOffline ?? crypto.randomUUID();
+              }
+
+              return {
+                uuidOffline,
+                backendId: p.id,
+                clienteId: String(p.clienteId),
+                direccionEntrega: p.direccionEntrega ?? '',
+                estado: p.estado,
+                urlFotoEvidencia: p.urlFotoEvidencia ?? '',
+                total: p.total,
+                observaciones: p.observaciones ?? '',
+                sincronizado: true,
+                detalles: (p.detalles ?? []).map((d: any) => ({
+                  garrafaId: String(d.garrafaId),
+                  cantidad: d.cantidad,
+                  precioUnitario: d.precioUnitario,
+                  subtotal: d.subtotal,
+                })),
+                updatedAt: p.updatedAt ?? p.createdAt ?? new Date().toISOString(),
+                _deleted: false as const,
+              };
+            });
 
             const checkpoint: ReplicationCheckpoint = documents.length > 0
               ? { updatedAt: documents[documents.length - 1].updatedAt, id: documents[documents.length - 1].uuidOffline }
@@ -247,7 +247,7 @@ export class ReplicationService {
           } catch (error: any) {
             if (error.status === 0 || !navigator.onLine) {
               console.warn('[ReplicationService] Offline, los pedidos se sincronizarán al volver la conexión.');
-              throw error; 
+              throw error;
             }
             console.error('[ReplicationService] Error al hacer push de pedidos:', error);
             this.toast.error('No se pudo sincronizar pedidos con el servidor.');

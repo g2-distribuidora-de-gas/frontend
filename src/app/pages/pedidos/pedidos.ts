@@ -2,6 +2,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { startWith } from 'rxjs/operators';
 import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models';
 import { nombreGarrafa, TipoGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
@@ -16,12 +18,18 @@ import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 export class Pedidos {
   private pedidoSrv = inject(PedidoService);
 
-  protected pedidos = signal<PedidoCompleto[]>([]);
+  private pedidosRaw = toSignal(
+    this.pedidoSrv.getPedidos$().pipe(startWith(null)),
+    { initialValue: null },
+  );
+
+  protected pedidos = computed<PedidoCompleto[]>(() => this.pedidosRaw() ?? []);
+  protected cargando = computed(() => this.pedidosRaw() === null);
+
   protected estados: EstadoInfo[] = this.pedidoSrv.getEstados();
   protected filtroEstado = signal<string>('todos');
   protected busqueda = signal('');
   protected expandido = signal<string | null>(null);
-  protected cargando = signal(true);
 
   protected nombreGarrafa = nombreGarrafa;
   protected estadoLabels = ESTADO_LABELS;
@@ -36,16 +44,6 @@ export class Pedidos {
       return `${p.uuidOffline} ${cliente} ${p.observaciones}`.toLowerCase().includes(q);
     });
   });
-
-  constructor() {
-    this.cargar();
-  }
-
-  private async cargar(): Promise<void> {
-    this.cargando.set(true);
-    this.pedidos.set(await this.pedidoSrv.getPedidos());
-    this.cargando.set(false);
-  }
 
   protected alternar(uuid: string): void {
     this.expandido.set(this.expandido() === uuid ? null : uuid);
@@ -63,7 +61,6 @@ export class Pedidos {
 
   protected async cambiarEstado(pedido: PedidoCompleto, estado: EstadoPedido): Promise<void> {
     await this.pedidoSrv.cambiarEstado(pedido.uuidOffline, estado);
-    await this.cargar();
   }
 
   protected claseEstado(estado?: EstadoPedido): string {

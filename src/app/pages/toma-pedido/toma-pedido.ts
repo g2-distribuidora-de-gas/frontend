@@ -23,8 +23,8 @@ export class TomaPedido {
   private toast = inject(ToastService);
   private replication = inject(ReplicationService);
 
-  protected clientes = signal<Cliente[]>([]);
-  protected clientesInactivos = signal<Cliente[]>([]);
+  protected clientes = toSignal(this.catalogo.clientesActivos$(), { initialValue: [] as Cliente[] });
+  protected clientesInactivos = toSignal(this.catalogo.clientesInactivos$(), { initialValue: [] as Cliente[] });
   protected mostrarInactivos = signal(false);
   // Lista reactiva: se actualiza sola cuando cambia el stock/precio en RxDB
   protected garrafas = toSignal(this.catalogo.garrafasActivas$(), { initialValue: [] as Garrafa[] });
@@ -58,15 +58,6 @@ export class TomaPedido {
   protected puedeConfirmar = computed(() => !!this.clienteId() && this.items().length > 0 && !this.guardando());
 
   protected nombreGarrafa = nombreGarrafa;
-
-  constructor() {
-    this.recargarClientes();
-  }
-
-  private async recargarClientes(): Promise<void> {
-    this.clientes.set(await this.catalogo.getClientesActivos());
-    this.clientesInactivos.set(await this.catalogo.getClientesInactivos());
-  }
 
   protected cantidadDe(g: Garrafa): number {
     return this.cantidades()[g.id] ?? 0;
@@ -180,7 +171,6 @@ export class TomaPedido {
         longitud: u ? u.lng : null,
         placeId: u ? (u.placeId ?? null) : null,
       });
-      await this.recargarClientes();
       this.clienteId.set(id);
       this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
       this.nuevoClienteUbicacion.set(null);
@@ -196,7 +186,6 @@ export class TomaPedido {
     try {
       await this.catalogo.darBajaCliente(c.id);
       if (this.clienteId() === c.id) this.clienteId.set(null);
-      await this.recargarClientes();
       this.toast.exito('Cliente dado de baja.');
     } catch (e: any) {
       this.toast.error(e.message || 'Error al dar de baja el cliente.');
@@ -206,7 +195,6 @@ export class TomaPedido {
   protected async reactivarCliente(c: Cliente): Promise<void> {
     try {
       await this.catalogo.reactivarCliente(c.id);
-      await this.recargarClientes();
       this.toast.exito(`${c.nombre} ${c.apellido} reactivado.`);
     } catch (e: any) {
       this.toast.error(e.message || 'Error al reactivar el cliente.');

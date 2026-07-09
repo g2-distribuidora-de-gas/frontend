@@ -2,6 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { DetallePedido, EstadoPedido, PedidoCompleto } from '../models';
 import { RxDatabaseService, ESTADOS, EstadoInfo } from './rx-database.service';
 import { ApiPedidoService } from './api-pedido.service';
+import { DbRecoveryService } from './db-recovery.service';
+import { Observable, combineLatest, EMPTY } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 
 export interface ItemNuevoPedido {
   garrafaId: string;
@@ -13,6 +16,7 @@ export interface ItemNuevoPedido {
 export class PedidoService {
   private rxDb = inject(RxDatabaseService);
   private apiPedido = inject(ApiPedidoService);
+  private recovery = inject(DbRecoveryService);
 
   getEstados(): EstadoInfo[] {
     return ESTADOS;
@@ -54,6 +58,50 @@ export class PedidoService {
     return uuidOffline;
   }
 
+  getPedidos$(): Observable<PedidoCompleto[]> {
+    return this.protegerDbCerrada(
+      combineLatest([
+        this.rxDb.pedidos.find({ sort: [{ updatedAt: 'desc' }] }).$,
+        this.rxDb.clientes.find().$,
+        this.rxDb.garrafas.find().$,
+      ]).pipe(
+        map(([pedidoDocs, clienteDocs, garrafaDocs]) => {
+          const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
+          const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
+          return pedidoDocs.map((doc) => this.enriquecer(doc.toJSON(), cMap, gMap));
+        }),
+      ),
+    );
+  }
+
+  getPedidosPendientes$(): Observable<PedidoCompleto[]> {
+    return this.protegerDbCerrada(
+      combineLatest([
+        this.rxDb.pedidos.find({ selector: { sincronizado: false } }).$,
+        this.rxDb.clientes.find().$,
+        this.rxDb.garrafas.find().$,
+      ]).pipe(
+        map(([pedidoDocs, clienteDocs, garrafaDocs]) => {
+          const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
+          const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
+          return pedidoDocs.map((doc) => this.enriquecer(doc.toJSON(), cMap, gMap));
+        }),
+      ),
+    );
+  }
+
+  private protegerDbCerrada<T>(source: Observable<T>): Observable<T> {
+    return source.pipe(
+      catchError((err: any) => {
+        if (err?.name === 'DatabaseClosedError') {
+          void this.recovery.manejarDbCerrada();
+          return EMPTY;
+        }
+        throw err;
+      }),
+    );
+  }
+
   async getPedidos(): Promise<PedidoCompleto[]> {
     const [pedidoDocs, clienteDocs, garrafaDocs] = await Promise.all([
       this.rxDb.pedidos.find({ sort: [{ updatedAt: 'desc' }] }).exec(),
@@ -64,18 +112,40 @@ export class PedidoService {
     const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
     const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
 
-    return pedidoDocs.map((doc) => {
-      const p = JSON.parse(JSON.stringify(doc.toJSON())) as any;
-      return {
-        ...p,
-        estado: p.estado as EstadoPedido,
-        cliente: cMap.get(p.clienteId),
-        detallesResueltos: (p.detalles ?? []).map((d: DetallePedido) => ({
-          ...d,
-          garrafa: gMap.get(d.garrafaId),
-        })),
-      } as PedidoCompleto;
-    });
+    return pedidoDocs.map((doc) => this.enriquecer(doc.toJSON(), cMap, gMap));
+  }
+
+  async getPedidosPendientes(): Promise<PedidoCompleto[]> {
+    const pedidoDocs = await this.rxDb.pedidos
+      .find({ selector: { sincronizado: false } })
+      .exec();
+
+    const [clienteDocs, garrafaDocs] = await Promise.all([
+      this.rxDb.clientes.find().exec(),
+      this.rxDb.garrafas.find().exec(),
+    ]);
+
+    const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
+    const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
+
+    return pedidoDocs.map((doc) => this.enriquecer(doc.toJSON(), cMap, gMap));
+  }
+
+  private enriquecer(
+    pedido: any,
+    cMap: Map<string, any>,
+    gMap: Map<string, any>,
+  ): PedidoCompleto {
+    const p = JSON.parse(JSON.stringify(pedido)) as any;
+    return {
+      ...p,
+      estado: p.estado as EstadoPedido,
+      cliente: cMap.get(p.clienteId),
+      detallesResueltos: (p.detalles ?? []).map((d: DetallePedido) => ({
+        ...d,
+        garrafa: gMap.get(d.garrafaId),
+      })),
+    } as PedidoCompleto;
   }
 
   async cambiarEstado(uuidOffline: string, estado: EstadoPedido): Promise<void> {
@@ -93,33 +163,5 @@ export class PedidoService {
     }
 
     await doc.patch({ estado, updatedAt: new Date().toISOString() });
-  }
-
-  /** Obtiene pedidos pendientes de sincronizar */
-  async getPedidosPendientes(): Promise<PedidoCompleto[]> {
-    const pedidoDocs = await this.rxDb.pedidos
-      .find({ selector: { sincronizado: false } })
-      .exec();
-
-    const [clienteDocs, garrafaDocs] = await Promise.all([
-      this.rxDb.clientes.find().exec(),
-      this.rxDb.garrafas.find().exec(),
-    ]);
-
-    const cMap = new Map(clienteDocs.map((c) => [c.id, c.toJSON()]));
-    const gMap = new Map(garrafaDocs.map((g) => [g.id, g.toJSON()]));
-
-    return pedidoDocs.map((doc) => {
-      const p = JSON.parse(JSON.stringify(doc.toJSON())) as any;
-      return {
-        ...p,
-        estado: p.estado as EstadoPedido,
-        cliente: cMap.get(p.clienteId),
-        detallesResueltos: (p.detalles ?? []).map((d: DetallePedido) => ({
-          ...d,
-          garrafa: gMap.get(d.garrafaId),
-        })),
-      } as PedidoCompleto;
-    });
   }
 }

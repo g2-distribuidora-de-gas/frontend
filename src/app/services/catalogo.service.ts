@@ -4,19 +4,51 @@ import { Cliente } from '../models/cliente.model';
 import { RxDatabaseService } from './rx-database.service';
 import { ApiClienteService } from './api-cliente.service';
 import { ApiGarrafaService } from './api-garrafa.service';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { DbRecoveryService } from './db-recovery.service';
+import { Observable, EMPTY } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class CatalogoService {
   private rxDb = inject(RxDatabaseService);
   private apiCliente = inject(ApiClienteService);
   private apiGarrafa = inject(ApiGarrafaService);
+  private recovery = inject(DbRecoveryService);
 
   garrafasActivas$(): Observable<Garrafa[]> {
-    return this.rxDb.garrafas
-      .find({ selector: { activo: true } })
-      .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa)));
+    return this.protegerDbCerrada(
+      this.rxDb.garrafas
+        .find({ selector: { activo: true } })
+        .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa))),
+    );
+  }
+
+  clientesActivos$(): Observable<Cliente[]> {
+    return this.protegerDbCerrada(
+      this.rxDb.clientes
+        .find({ selector: { activo: true } })
+        .$.pipe(map((docs) => this.ordenar(docs.map((d) => d.toJSON() as unknown as Cliente)))),
+    );
+  }
+
+  clientesInactivos$(): Observable<Cliente[]> {
+    return this.protegerDbCerrada(
+      this.rxDb.clientes
+        .find({ selector: { activo: false } })
+        .$.pipe(map((docs) => this.ordenar(docs.map((d) => d.toJSON() as unknown as Cliente)))),
+    );
+  }
+
+  private protegerDbCerrada<T>(source: Observable<T>): Observable<T> {
+    return source.pipe(
+      catchError((err: any) => {
+        if (err?.name === 'DatabaseClosedError') {
+          void this.recovery.manejarDbCerrada();
+          return EMPTY;
+        }
+        throw err;
+      }),
+    );
   }
 
   async crearGarrafa(datos: GarrafaRequest): Promise<string> {
@@ -82,13 +114,15 @@ export class CatalogoService {
 
   async getClientesActivos(): Promise<Cliente[]> {
     const docs = await this.rxDb.clientes.find({ selector: { activo: true } }).exec();
-    const clientes = docs.map((d) => d.toJSON() as unknown as Cliente);
-    return clientes.sort((a, b) => this.nombreOrden(a).localeCompare(this.nombreOrden(b)));
+    return this.ordenar(docs.map((d) => d.toJSON() as unknown as Cliente));
   }
 
   async getClientesInactivos(): Promise<Cliente[]> {
     const docs = await this.rxDb.clientes.find({ selector: { activo: false } }).exec();
-    const clientes = docs.map((d) => d.toJSON() as unknown as Cliente);
+    return this.ordenar(docs.map((d) => d.toJSON() as unknown as Cliente));
+  }
+
+  private ordenar(clientes: Cliente[]): Cliente[] {
     return clientes.sort((a, b) => this.nombreOrden(a).localeCompare(this.nombreOrden(b)));
   }
 
