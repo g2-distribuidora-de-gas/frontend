@@ -1,5 +1,5 @@
 import type { Cliente } from './cliente.model';
-import type { Garrafa } from './garrafa.model';
+import type { Garrafa, TipoGarrafa } from './garrafa.model';
 
 /** Estados alineados con el enum EstadoPedido del backend */
 export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO';
@@ -51,6 +51,7 @@ export interface PedidoDetalleRequest {
 export interface PedidoRequest {
   uuidOffline?: string;
   clienteId: number;
+  creadorId?: number;
   direccionEntrega: string;
   urlFotoEvidencia?: string;
   detalles: PedidoDetalleRequest[];
@@ -59,7 +60,7 @@ export interface PedidoRequest {
 export interface PedidoDetalleResponse {
   id: number;
   garrafaId: number;
-  garrafaTipo: string;
+  garrafaTipo: TipoGarrafa;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
@@ -70,6 +71,8 @@ export interface PedidoResponse {
   uuidOffline: string;
   clienteId: number;
   clienteNombre: string;
+  creadorId?: number;
+  creadorNombre?: string;
   direccionEntrega: string;
   estado: EstadoPedido;
   urlFotoEvidencia?: string;

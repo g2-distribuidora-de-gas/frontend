@@ -31,7 +31,7 @@ export class ApiClienteService {
       dni: '',
       telefono: resp.telefono ?? '',
       direccion: resp.direccion,
-      activo: true,
+      activo: resp.activo ?? true,
       latitud: resp.latitud ?? null,
       longitud: resp.longitud ?? null,
       placeId: resp.placeId ?? null,
