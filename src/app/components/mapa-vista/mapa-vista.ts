@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   OnDestroy,
+  computed,
   input,
   viewChild,
 } from '@angular/core';
@@ -13,17 +14,25 @@ import * as L from 'leaflet';
   selector: 'app-mapa-vista',
   standalone: true,
   template: `
-    <div
-      #mapEl
-      class="h-40 w-full overflow-hidden rounded-xl border border-brand-200"
-      aria-label="Ubicación del cliente en el mapa"
-    ></div>
+    <div [class]="contenedorClase()">
+      <div
+        #mapEl
+        class="absolute inset-0"
+        aria-label="Ubicación del cliente en el mapa"
+      ></div>
+    </div>
   `,
 })
 export class MapaVista implements AfterViewInit, OnDestroy {
   readonly lat = input.required<number>();
   readonly lng = input.required<number>();
   readonly etiqueta = input<string>('');
+  readonly cuadrado = input<boolean>(false);
+
+  protected readonly contenedorClase = computed(() => {
+    const forma = this.cuadrado() ? 'aspect-square' : 'h-72';
+    return `relative ${forma} w-full overflow-hidden rounded-xl border border-brand-200`;
+  });
 
   private readonly mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map?: L.Map;

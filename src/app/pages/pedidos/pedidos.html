@@ -98,18 +98,20 @@
                       [lat]="p.cliente!.latitud!"
                       [lng]="p.cliente!.longitud!"
                       [etiqueta]="p.cliente!.nombre"
+                      [cuadrado]="!!p.urlFotoEvidencia"
                     />
                   </div>
                 } @else {
                   <p class="text-xs text-brand-700/50">📍 Este cliente no tiene ubicación cargada.</p>
                 }
+
                 @if (p.urlFotoEvidencia) {
                   <div class="space-y-1.5">
                     <span class="text-xs font-semibold text-brand-700/80">Foto de fachada</span>
                     <img
                       [src]="p.urlFotoEvidencia"
                       alt="Foto de fachada del cliente"
-                      class="h-40 w-full rounded-xl border border-brand-200 object-cover"
+                      class="aspect-square w-full rounded-xl border border-brand-200 bg-brand-50 object-contain"
                       (error)="$any($event.target).style.display = 'none'"
                     />
                   </div>
