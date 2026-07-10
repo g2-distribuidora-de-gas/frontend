@@ -22,6 +22,12 @@ export class ApiClienteService {
     return firstValueFrom(this.http.put<ClienteResponse>(`/api/clientes/${id}`, request));
   }
 
+  async subirFoto(id: number, archivo: File, descripcion?: string): Promise<unknown> {
+    const form = new FormData();
+    form.append('archivo', archivo);
+    if (descripcion) form.append('descripcion', descripcion);
+    return firstValueFrom(this.http.post(`/api/clientes/${id}/foto`, form));
+  }
 
   static toLocal(resp: ClienteResponse): Cliente {
     return {

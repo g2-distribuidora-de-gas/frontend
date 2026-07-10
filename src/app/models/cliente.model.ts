@@ -6,9 +6,7 @@ export interface Cliente {
   dni: string;
   telefono: string;
   direccion: string;
-  /**  (el backend no soporta desactivar clientes) */
   activo: boolean;
-
   latitud?: number | null;
   longitud?: number | null;
   placeId?: string | null;
@@ -23,11 +21,16 @@ export interface ClienteResponse {
   latitud?: number | null;
   longitud?: number | null;
   placeId?: string | null;
+  geocodePrecision?: string | null;
   geoActualizadoEn?: string | null;
+  activo: boolean;
+  urlFotoEvidencia?: string | null;
 }
 
 export interface ClienteRequest {
   nombre: string;
   telefono?: string;
   direccion: string;
+  latitud?: number | null;
+  longitud?: number | null;
 }

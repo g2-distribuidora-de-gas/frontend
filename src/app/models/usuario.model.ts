@@ -1,3 +1,5 @@
+import type { RolUsuario } from './auth.model';
+
 /** Modelo local (RxDB) — alineado con el backend UsuarioResponse */
 export interface Usuario {
   id: string;
@@ -20,6 +22,9 @@ export interface UsuarioResponse {
   telefono: string;
   direccion: string;
   activo: boolean;
+  rol: RolUsuario;
+  email: string;
+  updatedAt?: string;
 }
 
 /** DTO para crear usuario en el backend */
@@ -30,4 +35,7 @@ export interface UsuarioRequest {
   telefono?: string;
   direccion?: string;
   activo?: boolean;
+  password?: string;
+  email?: string;
+  rol?: RolUsuario;
 }

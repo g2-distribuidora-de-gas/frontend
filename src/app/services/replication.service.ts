@@ -71,7 +71,7 @@ export class ReplicationService {
                 dni: ex?.dni ?? '',
                 telefono: c.telefono ?? ex?.telefono ?? '',
                 direccion: c.direccion ?? ex?.direccion ?? '',
-                activo: ex?.activo ?? true,
+                activo: ex?.activo ?? c.activo ?? true,
                 latitud: c.latitud ?? ex?.latitud ?? null,
                 longitud: c.longitud ?? ex?.longitud ?? null,
                 placeId: c.placeId ?? ex?.placeId ?? null,

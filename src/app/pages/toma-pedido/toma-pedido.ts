@@ -5,6 +5,7 @@ import { DecimalPipe } from '@angular/common';
 import { Garrafa, TipoGarrafa, nombreGarrafa } from '../../models/garrafa.model';
 import { Cliente } from '../../models/cliente.model';
 import { CatalogoService } from '../../services/catalogo.service';
+import { ApiClienteService } from '../../services/api-cliente.service';
 import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
 import { ReplicationService } from '../../services/replication.service';
@@ -18,6 +19,7 @@ import { MapaPicker, UbicacionSeleccionada } from '../../components/mapa-picker/
 })
 export class TomaPedido {
   private catalogo = inject(CatalogoService);
+  private apiCliente = inject(ApiClienteService);
   private pedidoSrv = inject(PedidoService);
   private router = inject(Router);
   private toast = inject(ToastService);
@@ -102,6 +104,39 @@ export class TomaPedido {
   protected mostrarFormCliente = signal(false);
   protected nuevoCliente = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
   protected nuevoClienteUbicacion = signal<UbicacionSeleccionada | null>(null);
+  private static readonly TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
+  private static readonly MAX_FOTO_BYTES = 10 * 1024 * 1024; 
+  protected fotoCliente = signal<File | null>(null);
+  protected fotoClientePreview = signal<string | null>(null);
+  protected onFotoCliente(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!TomaPedido.TIPOS_FOTO.includes(file.type)) {
+      this.toast.error('La foto debe ser JPG, PNG o WEBP.');
+      input.value = '';
+      return;
+    }
+    if (file.size > TomaPedido.MAX_FOTO_BYTES) {
+      this.toast.error('La foto no puede superar los 10 MB.');
+      input.value = '';
+      return;
+    }
+    this.revocarPreview();
+    this.fotoCliente.set(file);
+    this.fotoClientePreview.set(URL.createObjectURL(file));
+  }
+
+  protected quitarFotoCliente(): void {
+    this.revocarPreview();
+    this.fotoCliente.set(null);
+    this.fotoClientePreview.set(null);
+  }
+
+  private revocarPreview(): void {
+    const prev = this.fotoClientePreview();
+    if (prev) URL.revokeObjectURL(prev);
+  }
 
   protected onUbicacionCliente(u: UbicacionSeleccionada): void {
     this.nuevoClienteUbicacion.set(u);
@@ -172,8 +207,17 @@ export class TomaPedido {
         placeId: u ? (u.placeId ?? null) : null,
       });
       this.clienteId.set(id);
+      const foto = this.fotoCliente();
+      if (foto) {
+        try {
+          await this.apiCliente.subirFoto(Number(id), foto, 'Fachada');
+        } catch {
+          this.toast.error('Cliente guardado, pero no se pudo subir la foto.');
+        }
+      }
       this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
       this.nuevoClienteUbicacion.set(null);
+      this.quitarFotoCliente();
       this.mostrarFormCliente.set(false);
       this.toast.exito('Cliente guardado.');
     } catch (e: any) {
