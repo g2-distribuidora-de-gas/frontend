@@ -2,25 +2,34 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { startWith } from 'rxjs/operators';
 import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models';
 import { nombreGarrafa, TipoGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
 import { EstadoInfo } from '../../services/rx-database.service';
+import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 
 @Component({
   selector: 'app-pedidos',
-  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe],
+  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe, MapaVista],
   templateUrl: './pedidos.html',
 })
 export class Pedidos {
   private pedidoSrv = inject(PedidoService);
 
-  protected pedidos = signal<PedidoCompleto[]>([]);
+  private pedidosRaw = toSignal(
+    this.pedidoSrv.getPedidos$().pipe(startWith(null)),
+    { initialValue: null },
+  );
+
+  protected pedidos = computed<PedidoCompleto[]>(() => this.pedidosRaw() ?? []);
+  protected cargando = computed(() => this.pedidosRaw() === null);
+
   protected estados: EstadoInfo[] = this.pedidoSrv.getEstados();
   protected filtroEstado = signal<string>('todos');
   protected busqueda = signal('');
   protected expandido = signal<string | null>(null);
-  protected cargando = signal(true);
 
   protected nombreGarrafa = nombreGarrafa;
   protected estadoLabels = ESTADO_LABELS;
@@ -36,23 +45,22 @@ export class Pedidos {
     });
   });
 
-  constructor() {
-    this.cargar();
-  }
-
-  private async cargar(): Promise<void> {
-    this.cargando.set(true);
-    this.pedidos.set(await this.pedidoSrv.getPedidos());
-    this.cargando.set(false);
-  }
-
   protected alternar(uuid: string): void {
     this.expandido.set(this.expandido() === uuid ? null : uuid);
   }
 
+  protected tieneUbicacion(p: PedidoCompleto): boolean {
+    return p.cliente?.latitud != null && p.cliente?.longitud != null;
+  }
+
+  protected mapsUrl(p: PedidoCompleto): string {
+    const lat = p.cliente?.latitud;
+    const lng = p.cliente?.longitud;
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+
   protected async cambiarEstado(pedido: PedidoCompleto, estado: EstadoPedido): Promise<void> {
     await this.pedidoSrv.cambiarEstado(pedido.uuidOffline, estado);
-    await this.cargar();
   }
 
   protected claseEstado(estado?: EstadoPedido): string {
