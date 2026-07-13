@@ -74,15 +74,15 @@
             </button>
 
             <div class="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-50 pt-2">
-              <button (click)="marcarEnProceso(p)" [disabled]="procesando() || !enCurso()"
-                class="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-40">En proceso</button>
-              <button (click)="marcarParada(p, 'ENTREGADO')" [disabled]="procesando() || !enCurso()"
-                class="rounded-lg border border-green-300 px-2.5 py-1 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40">Entregado</button>
-              <button (click)="marcarParada(p, 'FALLIDO')" [disabled]="procesando() || !enCurso()"
-                class="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">Fallido</button>
-              @if (p.estadoEntrega !== 'PENDIENTE') {
-                <button (click)="marcarParada(p, 'PENDIENTE')" [disabled]="procesando() || !enCurso()"
-                  class="rounded-lg border border-brand-200 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-40">Reabrir</button>
+              @if (p.estadoEntrega === 'PENDIENTE') {
+                <button (click)="marcarParada(p, 'ENTREGADO')" [disabled]="procesando() || !enCurso()"
+                  class="rounded-lg border border-green-300 px-2.5 py-1 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40">Entregado</button>
+                <button (click)="marcarParada(p, 'FALLIDO')" [disabled]="procesando() || !enCurso()"
+                  class="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">Fallido</button>
+              } @else {
+                <span class="text-xs font-medium" [class]="p.estadoEntrega === 'ENTREGADO' ? 'text-green-700' : 'text-red-600'">
+                  {{ p.estadoEntrega === 'ENTREGADO' ? 'Entregado' : 'Fallido' }} · sin cambios
+                </span>
               }
               @if (p.cliente?.latitud != null) {
                 <a [href]="mapsUrl(p)" target="_blank" rel="noopener"
