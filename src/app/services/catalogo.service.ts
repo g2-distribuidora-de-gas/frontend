@@ -161,6 +161,37 @@ export class CatalogoService {
     return local.id;
   }
 
+  async editarCliente(
+    id: string,
+    datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo'>,
+  ): Promise<void> {
+    if (!navigator.onLine) {
+      throw new Error('No se pueden editar clientes.');
+    }
+    const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
+    const resp = await this.apiCliente.actualizar(Number(id), {
+      nombre: nombreCompleto,
+      telefono: datos.telefono || undefined,
+      direccion: datos.direccion,
+      latitud: datos.latitud ?? null,
+      longitud: datos.longitud ?? null,
+    });
+
+    const doc = await this.rxDb.clientes.findOne(id).exec();
+    if (!doc) throw new Error('Cliente no encontrado.');
+    await doc.patch({
+      nombre: datos.nombre,
+      apellido: datos.apellido,
+      dni: datos.dni,
+      telefono: resp.telefono ?? datos.telefono ?? '',
+      direccion: resp.direccion ?? datos.direccion,
+      latitud: datos.latitud ?? resp.latitud ?? null,
+      longitud: datos.longitud ?? resp.longitud ?? null,
+      placeId: datos.placeId ?? resp.placeId ?? null,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   async darBajaCliente(id: string): Promise<void> {
     const doc = await this.rxDb.clientes.findOne(id).exec();
     if (!doc) throw new Error('Cliente no encontrado.');

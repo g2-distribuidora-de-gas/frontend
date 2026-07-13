@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AuthResponse, AuthUser, LoginRequest } from '../models/auth.model';
+import { AuthResponse, AuthUser, LoginRequest, RolUsuario } from '../models/auth.model';
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
@@ -17,6 +17,34 @@ export class AuthService {
   readonly usuario = this._usuario.asReadonly();
 
   readonly autenticado = computed(() => this._token() !== null);
+
+  readonly rol = computed<RolUsuario | null>(() => this._usuario()?.rol ?? null);
+  readonly userId = computed<number | null>(() => this._usuario()?.userId ?? null);
+
+  readonly esSuperAdmin = computed(() => this.rol() === 'SUPER_ADMIN');
+  readonly esAdmin = computed(() => this.rol() === 'ADMIN');
+  readonly esRepartidor = computed(() => this.rol() === 'REPARTIDOR');
+  readonly esPreventista = computed(() => this.rol() === 'PREVENTISTA');
+  readonly esAdministrativo = computed(
+    () => this.rol() === 'ADMIN' || this.rol() === 'SUPER_ADMIN',
+  );
+  tieneRol(...roles: RolUsuario[]): boolean {
+    const r = this.rol();
+    return r !== null && roles.includes(r);
+  }
+
+  rutaInicial(): string {
+    switch (this.rol()) {
+      case 'REPARTIDOR':
+        return '/reparto';
+      case 'ADMIN':
+      case 'SUPER_ADMIN':
+        return '/admin/usuarios';
+      case 'PREVENTISTA':
+      default:
+        return '/toma-pedido';
+    }
+  }
 
 
   async login(credenciales: LoginRequest): Promise<AuthUser> {

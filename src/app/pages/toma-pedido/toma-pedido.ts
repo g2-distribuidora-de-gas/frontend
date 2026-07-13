@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
-import { Garrafa, TipoGarrafa, nombreGarrafa } from '../../models/garrafa.model';
+import { Garrafa, nombreGarrafa } from '../../models/garrafa.model';
 import { Cliente } from '../../models/cliente.model';
 import { CatalogoService } from '../../services/catalogo.service';
 import { ApiClienteService } from '../../services/api-cliente.service';
@@ -104,6 +104,53 @@ export class TomaPedido {
   protected mostrarFormCliente = signal(false);
   protected nuevoCliente = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
   protected nuevoClienteUbicacion = signal<UbicacionSeleccionada | null>(null);
+  protected editandoClienteId = signal<string | null>(null);
+  protected ubicInicialLat = signal<number | null>(null);
+  protected ubicInicialLng = signal<number | null>(null);
+  protected abrirNuevoCliente(): void {
+    this.editandoClienteId.set(null);
+    this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+    this.nuevoClienteUbicacion.set(null);
+    this.ubicInicialLat.set(null);
+    this.ubicInicialLng.set(null);
+    this.quitarFotoCliente();
+    this.mostrarFormCliente.set(true);
+  }
+
+  protected editarCliente(c: Cliente): void {
+    this.editandoClienteId.set(c.id);
+    this.nuevoCliente.set({
+      nombre: c.nombre,
+      apellido: c.apellido,
+      dni: c.dni,
+      telefono: c.telefono,
+      direccion: c.direccion,
+    });
+    if (c.latitud != null && c.longitud != null) {
+      this.nuevoClienteUbicacion.set({ lat: c.latitud, lng: c.longitud, placeId: c.placeId ?? null });
+      this.ubicInicialLat.set(c.latitud);
+      this.ubicInicialLng.set(c.longitud);
+    } else {
+      this.nuevoClienteUbicacion.set(null);
+      this.ubicInicialLat.set(null);
+      this.ubicInicialLng.set(null);
+    }
+    this.quitarFotoCliente();
+    this.mostrarFormCliente.set(true);
+  }
+
+  protected toggleFormCliente(): void {
+    if (this.mostrarFormCliente()) {
+      this.cerrarFormCliente();
+    } else {
+      this.abrirNuevoCliente();
+    }
+  }
+
+  protected cerrarFormCliente(): void {
+    this.mostrarFormCliente.set(false);
+    this.editandoClienteId.set(null);
+  }
   private static readonly TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
   private static readonly MAX_FOTO_BYTES = 10 * 1024 * 1024; 
   protected fotoCliente = signal<File | null>(null);
@@ -195,18 +242,26 @@ export class TomaPedido {
     if (!this.validarNuevoCliente()) return;
     const n = this.nuevoCliente();
     const u = this.nuevoClienteUbicacion();
+    const editId = this.editandoClienteId();
+    const datos = {
+      nombre: n.nombre.trim(),
+      apellido: n.apellido.trim(),
+      dni: n.dni.trim(),
+      telefono: n.telefono.trim(),
+      direccion: n.direccion.trim(),
+      latitud: u ? u.lat : null,
+      longitud: u ? u.lng : null,
+      placeId: u ? (u.placeId ?? null) : null,
+    };
     try {
-      const id = await this.catalogo.crearCliente({
-        nombre: n.nombre.trim(),
-        apellido: n.apellido.trim(),
-        dni: n.dni.trim(),
-        telefono: n.telefono.trim(),
-        direccion: n.direccion.trim(),
-        latitud: u ? u.lat : null,
-        longitud: u ? u.lng : null,
-        placeId: u ? (u.placeId ?? null) : null,
-      });
-      this.clienteId.set(id);
+      let id: string;
+      if (editId) {
+        await this.catalogo.editarCliente(editId, datos);
+        id = editId;
+      } else {
+        id = await this.catalogo.crearCliente(datos);
+        this.clienteId.set(id);
+      }
       const foto = this.fotoCliente();
       if (foto) {
         try {
@@ -217,9 +272,12 @@ export class TomaPedido {
       }
       this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
       this.nuevoClienteUbicacion.set(null);
+      this.ubicInicialLat.set(null);
+      this.ubicInicialLng.set(null);
       this.quitarFotoCliente();
       this.mostrarFormCliente.set(false);
-      this.toast.exito('Cliente guardado.');
+      this.editandoClienteId.set(null);
+      this.toast.exito(editId ? 'Cliente actualizado.' : 'Cliente guardado.');
     } catch (e: any) {
       this.toast.error(e.message || 'Error al guardar el cliente.');
     }
@@ -242,126 +300,6 @@ export class TomaPedido {
       this.toast.exito(`${c.nombre} ${c.apellido} reactivado.`);
     } catch (e: any) {
       this.toast.error(e.message || 'Error al reactivar el cliente.');
-    }
-  }
-
-  // ─── Formulario nueva garrafa ───
-
-  protected mostrarFormGarrafa = signal(false);
-  protected nuevaGarrafa = signal<{ tipo: TipoGarrafa | ''; precio: number | null; stock: number | null }>({
-    tipo: '',
-    precio: null,
-    stock: null,
-  });
-
-  private static readonly CAPACIDADES: Record<TipoGarrafa, number> = {
-    GARRAFA_10KG: 10,
-    GARRAFA_15KG: 15,
-    GARRAFA_45KG: 45,
-  };
-
-  /** Tipos que todavía no existen (el backend exige tipo único) */
-  protected tiposDisponibles = computed(() => {
-    const existentes = new Set(this.garrafas().map((g) => g.tipo));
-    return (Object.keys(TomaPedido.CAPACIDADES) as TipoGarrafa[]).filter((t) => !existentes.has(t));
-  });
-
-  protected campoGarrafa(campo: 'tipo' | 'precio' | 'stock', valor: any): void {
-    this.nuevaGarrafa.update((n) => ({ ...n, [campo]: valor }));
-  }
-
-  protected async guardarGarrafa(): Promise<void> {
-    const n = this.nuevaGarrafa();
-    if (!n.tipo) {
-      this.toast.error('Seleccioná el tipo de garrafa.');
-      return;
-    }
-    if (!n.precio || n.precio <= 0) {
-      this.toast.error('El precio debe ser mayor a 0.');
-      return;
-    }
-    if (n.stock === null || n.stock < 0 || !Number.isInteger(Number(n.stock))) {
-      this.toast.error('El stock debe ser un número entero mayor o igual a 0.');
-      return;
-    }
-    try {
-      await this.catalogo.crearGarrafa({
-        tipo: n.tipo,
-        capacidadKg: TomaPedido.CAPACIDADES[n.tipo],
-        precio: n.precio,
-        stockDisponible: n.stock,
-      });
-      this.nuevaGarrafa.set({ tipo: '', precio: null, stock: null });
-      this.mostrarFormGarrafa.set(false);
-      this.toast.exito('Garrafa creada.');
-    } catch (e: any) {
-      this.toast.error(e.message || 'Error al crear la garrafa.');
-    }
-  }
-
-  // ─── Editar garrafa (precio / stock) ───
-
-  protected mostrarFormEditar = signal(false);
-  protected editarId = signal<string | null>(null);
-  protected editPrecio = signal<number | null>(null);
-  protected editStock = signal<number>(0);
-
-  protected garrafaEnEdicion = computed(
-    () => this.garrafas().find((g) => g.id === this.editarId()) ?? null,
-  );
-
-  protected toggleFormEditar(): void {
-    const abrir = !this.mostrarFormEditar();
-    this.mostrarFormEditar.set(abrir);
-    // al abrir edición cerramos el form de creación para no encimarlos
-    if (abrir) this.mostrarFormGarrafa.set(false);
-    if (!abrir) this.resetEdicion();
-  }
-
-  protected seleccionarEditar(id: string | null): void {
-    this.editarId.set(id);
-    const g = this.garrafas().find((x) => x.id === id);
-    this.editPrecio.set(g ? g.precio : null);
-    this.editStock.set(g ? (g.stockDisponible ?? 0) : 0);
-  }
-
-  protected ajustarEditStock(delta: number): void {
-    this.editStock.update((s) => Math.max(0, s + delta));
-  }
-
-  protected setEditStock(valor: number | string | null): void {
-    this.editStock.set(Math.max(0, Math.floor(Number(valor) || 0)));
-  }
-
-  private resetEdicion(): void {
-    this.editarId.set(null);
-    this.editPrecio.set(null);
-    this.editStock.set(0);
-  }
-
-  protected async guardarEdicion(): Promise<void> {
-    const id = this.editarId();
-    if (!id) {
-      this.toast.error('Elegí una garrafa para editar.');
-      return;
-    }
-    const precio = this.editPrecio();
-    if (!precio || precio <= 0) {
-      this.toast.error('El precio debe ser mayor a 0.');
-      return;
-    }
-    const stock = this.editStock();
-    if (stock < 0 || !Number.isInteger(Number(stock))) {
-      this.toast.error('El stock debe ser un entero mayor o igual a 0.');
-      return;
-    }
-    try {
-      await this.catalogo.editarGarrafa(id, { precio, stockDisponible: stock });
-      this.toast.exito('Garrafa actualizada.');
-      this.mostrarFormEditar.set(false);
-      this.resetEdicion();
-    } catch (e: any) {
-      this.toast.error(e.message || 'Error al actualizar la garrafa.');
     }
   }
 

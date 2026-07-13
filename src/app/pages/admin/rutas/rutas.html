@@ -1,0 +1,137 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-brand-900">Planificar rutas</h1>
+    <p class="text-sm text-brand-700/70">
+      Asigná pedidos pendientes a un repartidor. El orden óptimo y la ruta se calculan con LocationIQ.
+    </p>
+  </div>
+
+  @if (cargando()) {
+    <p class="py-6 text-center text-sm text-brand-700/60">Cargando…</p>
+  } @else {
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:items-start">
+      <div class="space-y-4 lg:col-span-3">
+        <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 class="mb-3 flex items-center gap-2 font-semibold text-brand-900">
+            <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
+            Repartidor
+          </h2>
+          @if (repartidores().length === 0) {
+            <p class="text-sm text-brand-700/60">No hay repartidores activos. Creá uno en la sección Usuarios.</p>
+          } @else {
+            <select
+              [ngModel]="repartidorId()"
+              (ngModelChange)="repartidorId.set($event)"
+              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+            >
+              <option [ngValue]="null" disabled>Seleccioná un repartidor…</option>
+              @for (r of repartidores(); track r.id) {
+                <option [ngValue]="r.id">{{ r.nombreCompleto }} — DNI {{ r.dni }}</option>
+              }
+            </select>
+          }
+        </section>
+
+        <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="flex items-center gap-2 font-semibold text-brand-900">
+              <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
+              Pedidos pendientes
+            </h2>
+            <span class="text-xs font-medium text-brand-700/60">{{ cantidadSeleccionada() }} seleccionados</span>
+          </div>
+
+          <input
+            type="search" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
+            placeholder="Buscar por cliente, dirección o Nº…"
+            class="mb-3 w-full rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm outline-none focus:border-brand-400"
+          />
+
+          <div class="mb-2 flex gap-2">
+            <button (click)="seleccionarTodos()" class="rounded-lg border border-brand-200 px-3 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50">Seleccionar todos</button>
+            <button (click)="limpiarSeleccion()" class="rounded-lg border border-brand-200 px-3 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50">Limpiar</button>
+          </div>
+
+          <ul class="max-h-80 space-y-2 overflow-y-auto pr-1">
+            @for (p of pendientesFiltrados(); track p.id) {
+              <li>
+                <button
+                  (click)="alternar(p.id)"
+                  class="flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
+                  [class]="estaSeleccionado(p.id)
+                    ? 'border-brand-500 bg-brand-100 ring-1 ring-brand-400'
+                    : 'border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50'"
+                >
+                  <span
+                    class="grid h-5 w-5 shrink-0 place-items-center rounded border text-xs"
+                    [class]="estaSeleccionado(p.id) ? 'border-brand-500 bg-brand-500 text-white' : 'border-brand-300 text-transparent'"
+                  >✓</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-semibold text-brand-900">#{{ p.id }} · {{ p.clienteNombre }}</span>
+                    <span class="block truncate text-xs text-brand-700/70">{{ p.direccionEntrega }}</span>
+                  </span>
+                  <span class="shrink-0 text-xs font-medium text-brand-700/70">$ {{ p.total | number:'1.0-0' }}</span>
+                </button>
+              </li>
+            } @empty {
+              <li class="py-4 text-center text-sm text-brand-700/60">No hay pedidos pendientes.</li>
+            }
+          </ul>
+
+          <div class="mt-4 flex justify-end">
+            <button
+              (click)="planificar()" [disabled]="!puedePlanificar()"
+              class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600 disabled:opacity-50"
+            >{{ planificando() ? 'Planificando…' : 'Planificar ruta' }}</button>
+          </div>
+        </section>
+      </div>
+      <div class="lg:col-span-2 lg:sticky lg:top-20">
+        @if (rutaCreada(); as ruta) {
+          <section class="space-y-3 rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-center justify-between">
+              <h2 class="font-semibold text-brand-900">Ruta #{{ ruta.id }}</h2>
+              <span class="rounded-full border border-brand-300 bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-800">{{ ruta.estado }}</span>
+            </div>
+            <p class="text-sm text-brand-700/80">Repartidor: <strong>{{ nombreRepartidor(ruta.repartidorId) }}</strong></p>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div class="rounded-lg bg-brand-50 p-2 text-center">
+                <div class="text-lg font-bold text-brand-900">{{ km(ruta.distanciaTotalM) | number:'1.1-1' }} km</div>
+                <div class="text-xs text-brand-700/60">Distancia</div>
+              </div>
+              <div class="rounded-lg bg-brand-50 p-2 text-center">
+                <div class="text-lg font-bold text-brand-900">{{ minutos(ruta.duracionTotalS) }} min</div>
+                <div class="text-xs text-brand-700/60">Duración est.</div>
+              </div>
+            </div>
+
+            <div class="h-72">
+              <app-mapa-ruta
+                [geometria]="ruta.geometria"
+                [paradas]="ruta.paradas"
+                [origenLat]="ruta.origenLat ?? null"
+                [origenLng]="ruta.origenLng ?? null"
+              />
+            </div>
+
+            <ol class="space-y-1">
+              @for (p of ruta.paradas; track p.id) {
+                <li class="flex items-center gap-2 rounded-lg border border-brand-100 px-3 py-2 text-sm">
+                  <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500 text-xs font-bold text-white">{{ p.orden }}</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate font-medium text-brand-900">{{ p.cliente?.nombre }}</span>
+                    <span class="block truncate text-xs text-brand-700/70">{{ p.cliente?.direccion }}</span>
+                  </span>
+                </li>
+              }
+            </ol>
+          </section>
+        } @else {
+          <div class="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-6 text-center text-sm text-brand-700/60">
+            La ruta planificada aparecerá acá con el mapa y el orden de las paradas.
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>
