@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, ElementRef, OnDestroy, effect, input, output, viewChild,} from '@angular/core';
+import {AfterViewInit, Component, ElementRef, OnDestroy, ViewEncapsulation, effect, input, output, viewChild} from '@angular/core';
 import * as L from 'leaflet';
 import { RutaPedidoResponse } from '../../models/ruta.model';
 
@@ -6,6 +6,20 @@ import { RutaPedidoResponse } from '../../models/ruta.model';
 @Component({
   selector: 'app-mapa-ruta',
   standalone: true,
+  encapsulation: ViewEncapsulation.None,
+  styles: [`
+    .leaflet-tooltip.mapa-ruta-tooltip {
+      white-space: normal;
+      width: max-content;
+      max-width: 220px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+    }
+    @media (max-width: 480px) {
+      .leaflet-tooltip.mapa-ruta-tooltip { max-width: 60vw; }
+    }
+  `],
   template: `
     <div class="relative h-full min-h-[20rem] w-full overflow-hidden rounded-xl border border-brand-200">
       <div #mapEl class="absolute inset-0" aria-label="Mapa de la ruta de reparto"></div>
@@ -17,7 +31,7 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
   readonly paradas = input<RutaPedidoResponse[]>([]);
   readonly origenLat = input<number | null | undefined>(null);
   readonly origenLng = input<number | null | undefined>(null);
-  
+
   readonly seleccionadaId = input<number | null>(null);
 
   readonly paradaClick = output<number>();
@@ -80,6 +94,30 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
       iconAnchor: [14, 14],
     });
   }
+  private opcionesTooltip(): L.TooltipOptions {
+    return { direction: 'top', offset: [0, -12], opacity: 1, className: 'mapa-ruta-tooltip' };
+  }
+  private tooltipHtml(nombre: string, direccion?: string | null): string {
+    const dir = (direccion ?? '').trim();
+    const lineaDir = dir
+      ? `<div style="font-size:11px;color:#4b5563;margin-top:2px;line-height:1.3;">${this.escaparHtml(dir)}</div>`
+      : '';
+    return (
+      `<div style="line-height:1.3;">` +
+      `<div style="font-weight:700;color:#1f2937;">${this.escaparHtml(nombre)}</div>` +
+      lineaDir +
+      `</div>`
+    );
+  }
+
+  private escaparHtml(texto: string): string {
+    return texto
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   private redibujar(): void {
     if (!this.map || !this.capaRuta) return;
@@ -88,15 +126,12 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
 
     const bounds = L.latLngBounds([]);
 
-    const geo = this.parseGeometria(this.geometria());
+    const capaRutaLinea = this.construirCapaRuta(this.geometria());
     let geoDibujada = false;
-    if (geo) {
-      const linea = L.geoJSON(geo as any, {
-        style: { color: '#d4a233', weight: 4, opacity: 0.85 },
-      });
-      linea.addTo(this.capaRuta);
+    if (capaRutaLinea) {
+      capaRutaLinea.addTo(this.capaRuta);
       try {
-        const b = linea.getBounds();
+        const b = capaRutaLinea.getBounds();
         if (b.isValid()) {
           bounds.extend(b);
           geoDibujada = true;
@@ -112,7 +147,7 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
 
     if (oLat != null && oLng != null) {
       const m = L.marker([oLat, oLng], { icon: this.iconoOrigen() });
-      m.bindTooltip('Origen / depósito');
+      m.bindTooltip(this.tooltipHtml('Origen / depósito'), this.opcionesTooltip());
       m.addTo(this.capaRuta);
       bounds.extend([oLat, oLng]);
     }
@@ -125,7 +160,10 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
       const marker = L.marker([Number(lat), Number(lng)], {
         icon: this.iconoParada(p.orden, p.estadoEntrega, activa),
       });
-      marker.bindTooltip(`${p.orden}. ${p.cliente?.nombre ?? 'Cliente'} — ${p.cliente?.direccion ?? ''}`);
+      marker.bindTooltip(
+        this.tooltipHtml(`${p.orden}. ${p.cliente?.nombre ?? 'Cliente'}`, p.cliente?.direccion),
+        this.opcionesTooltip(),
+      );
       marker.on('click', () => this.paradaClick.emit(p.id));
       marker.addTo(this.capaRuta);
       this.markersPorId.set(p.id, marker);
@@ -137,6 +175,61 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
     } else {
       this.map.setView([-26.1916378, -58.1850831], 12);
     }
+  }
+  private construirCapaRuta(raw: string | null | undefined): L.Polyline | L.GeoJSON | null {
+    if (!raw) return null;
+    const texto = raw.trim();
+    if (texto === '') return null;
+
+    if (texto.startsWith('{') || texto.startsWith('[')) {
+      try {
+        const geo = JSON.parse(texto);
+        return L.geoJSON(geo as any, {
+          style: { color: '#d4a233', weight: 4, opacity: 0.9 },
+        });
+      } catch {
+      }
+    }
+
+    const puntos = this.decodePolyline(texto, 5);
+    if (puntos.length >= 2) {
+      return L.polyline(puntos, { color: '#d4a233', weight: 4, opacity: 0.9 });
+    }
+
+    return null;
+  }
+
+  private decodePolyline(encoded: string, precision = 5): L.LatLngTuple[] {
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+    const coordinates: L.LatLngTuple[] = [];
+    const factor = Math.pow(10, precision);
+
+    while (index < encoded.length) {
+      let result = 1;
+      let shift = 0;
+      let b: number;
+      do {
+        b = encoded.charCodeAt(index++) - 63 - 1;
+        result += b << shift;
+        shift += 5;
+      } while (b >= 0x1f);
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+      result = 1;
+      shift = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63 - 1;
+        result += b << shift;
+        shift += 5;
+      } while (b >= 0x1f);
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+      coordinates.push([lat / factor, lng / factor]);
+    }
+
+    return coordinates;
   }
   private dibujarTrazadoParadas(oLat?: number | null, oLng?: number | null): void {
     if (!this.capaRuta) return;
@@ -159,7 +252,7 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
     L.polyline(puntos, {
       color: '#d4a233',
       weight: 3,
-      opacity: 0.75,
+      opacity: 0.6,
       dashArray: '6 8',
     }).addTo(this.capaRuta);
   }
@@ -170,16 +263,6 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
     if (marker && this.map) {
       this.map.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 15), { animate: true });
       marker.openTooltip();
-    }
-  }
-
-  private parseGeometria(raw: string | null | undefined): unknown | null {
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed;
-    } catch {
-      return null;
     }
   }
 }
