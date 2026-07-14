@@ -4,10 +4,12 @@
       <h1 class="text-2xl font-bold tracking-tight text-brand-900">Pedidos</h1>
       <p class="text-sm text-brand-700/70">{{ filtrados().length }} pedido(s)</p>
     </div>
-    <a
-      routerLink="/toma-pedido"
-      class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
-    >+ Nuevo pedido</a>
+    @if (auth.esPreventista()) {
+      <a
+        routerLink="/toma-pedido"
+        class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
+      >+ Nuevo pedido</a>
+    }
   </div>
 
   <div class="flex flex-col gap-3 sm:flex-row">
@@ -40,7 +42,9 @@
   } @else if (filtrados().length === 0) {
     <div class="rounded-2xl border border-dashed border-brand-300 bg-white/60 py-14 text-center">
       <p class="mt-2 font-medium text-brand-800">No hay pedidos para mostrar</p>
-      <p class="text-sm text-brand-700/60">Cargá el primero desde "Nuevo pedido".</p>
+      @if (auth.esPreventista()) {
+        <p class="text-sm text-brand-700/60">Cargá el primero desde "Nuevo pedido".</p>
+      }
     </div>
   } @else {
     <ul class="space-y-3">

@@ -183,6 +183,7 @@ export class ReplicationService {
               return {
                 uuidOffline,
                 backendId: p.id,
+                creadorId: p.creadorId ?? undefined,
                 clienteId: String(p.clienteId),
                 direccionEntrega: p.direccionEntrega ?? '',
                 estado: p.estado,
@@ -230,6 +231,7 @@ export class ReplicationService {
           const pedidosRequest: PedidoRequest[] = nuevos.map((p) => ({
             uuidOffline: p.uuidOffline,
             clienteId: Number(p.clienteId),
+            creadorId: p.creadorId ?? undefined,
             direccionEntrega: p.direccionEntrega ?? '',
             urlFotoEvidencia: p.urlFotoEvidencia || undefined,
             detalles: p.detalles.map((d) => ({

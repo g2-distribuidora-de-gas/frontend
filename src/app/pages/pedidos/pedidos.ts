@@ -7,6 +7,7 @@ import { startWith } from 'rxjs/operators';
 import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models';
 import { nombreGarrafa, TipoGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
+import { AuthService } from '../../services/auth.service';
 import { EstadoInfo } from '../../services/rx-database.service';
 import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 
@@ -17,14 +18,23 @@ import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 })
 export class Pedidos {
   private pedidoSrv = inject(PedidoService);
+  protected auth = inject(AuthService);
 
   private pedidosRaw = toSignal(
     this.pedidoSrv.getPedidos$().pipe(startWith(null)),
     { initialValue: null },
   );
 
-  protected pedidos = computed<PedidoCompleto[]>(() => this.pedidosRaw() ?? []);
+  private pedidosTodos = computed<PedidoCompleto[]>(() => this.pedidosRaw() ?? []);
   protected cargando = computed(() => this.pedidosRaw() === null);
+
+  protected pedidos = computed<PedidoCompleto[]>(() => {
+    const todos = this.pedidosTodos();
+    if (this.auth.esAdministrativo()) return todos;
+    const uid = this.auth.userId();
+    if (uid == null) return [];
+    return todos.filter((p) => p.creadorId === uid);
+  });
 
   protected estados: EstadoInfo[] = this.pedidoSrv.getEstados();
   protected filtroEstado = signal<string>('todos');

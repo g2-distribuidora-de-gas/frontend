@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { DetallePedido, EstadoPedido, PedidoCompleto } from '../models';
+import { DetallePedido, EstadoPedido, PedidoCompleto } from '../models/pedido.model';
 import { RxDatabaseService, ESTADOS, EstadoInfo } from './rx-database.service';
 import { ApiPedidoService } from './api-pedido.service';
 import { DbRecoveryService } from './db-recovery.service';
+import { AuthService } from './auth.service';
 import { Observable, combineLatest, EMPTY } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
@@ -17,6 +18,7 @@ export class PedidoService {
   private rxDb = inject(RxDatabaseService);
   private apiPedido = inject(ApiPedidoService);
   private recovery = inject(DbRecoveryService);
+  private auth = inject(AuthService);
 
   getEstados(): EstadoInfo[] {
     return ESTADOS;
@@ -45,6 +47,7 @@ export class PedidoService {
 
     await this.rxDb.pedidos.insert({
       uuidOffline,
+      creadorId: this.auth.userId() ?? undefined,
       clienteId,
       direccionEntrega,
       estado: 'PENDIENTE',

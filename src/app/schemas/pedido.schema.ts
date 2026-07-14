@@ -12,12 +12,13 @@ import {
  */
 export const pedidoSchemaLiteral = {
   title: 'pedido schema',
-  version: 0,
+  version: 1,
   primaryKey: 'uuidOffline',
   type: 'object',
   properties: {
     uuidOffline: { type: 'string', maxLength: 36 },
     backendId: { type: 'number' },
+    creadorId: { type: 'number' },
     clienteId: { type: 'string', maxLength: 36 },
     direccionEntrega: { type: 'string' },
     estado: { type: 'string', maxLength: 20 },
