@@ -31,6 +31,17 @@ export interface RutaPedidoResponse {
   distanciaDesdeAnteriorM?: number | null;
   duracionDesdeAnteriorS?: number | null;
   estadoEntrega: EstadoEntrega;
+  motivoFallo?: string | null;
+}
+
+export interface DetalleEntregaRequest {
+  pedidoDetalleId: number;
+  cantidadEntregada: number;
+}
+export interface ActualizarParadaRequest {
+  nuevoEstado: EstadoEntrega;
+  motivoFallo?: string;
+  entregas?: DetalleEntregaRequest[];
 }
 
 

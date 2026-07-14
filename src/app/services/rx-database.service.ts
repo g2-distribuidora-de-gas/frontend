@@ -15,7 +15,7 @@ import { pedidoSchema, PedidoDocType } from '../schemas/pedido.schema';
 import { environment } from '../../environments/environment';
 
 
-export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO';
+export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO' | 'REPROGRAMADO';
 
 export interface EstadoInfo {
   id: EstadoPedido;
@@ -27,6 +27,7 @@ export const ESTADOS: EstadoInfo[] = [
   { id: 'EN_PROCESO', nombre: 'En proceso' },
   { id: 'ENTREGADO', nombre: 'Entregado' },
   { id: 'CANCELADO', nombre: 'Cancelado' },
+  { id: 'REPROGRAMADO', nombre: 'Reprogramado' },
 ];
 
 

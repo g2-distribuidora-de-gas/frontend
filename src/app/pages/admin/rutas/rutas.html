@@ -67,7 +67,12 @@
                     [class]="estaSeleccionado(p.id) ? 'border-brand-500 bg-brand-500 text-white' : 'border-brand-300 text-transparent'"
                   >✓</span>
                   <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-semibold text-brand-900">#{{ p.id }} · {{ p.clienteNombre }}</span>
+                    <span class="flex items-center gap-2">
+                      <span class="truncate text-sm font-semibold text-brand-900">#{{ p.id }} · {{ p.clienteNombre }}</span>
+                      @if (p.estado === 'REPROGRAMADO') {
+                        <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700" title="Entrega fallida anterior — reasignable">Reprogramado</span>
+                      }
+                    </span>
                     <span class="block truncate text-xs text-brand-700/70">{{ p.direccionEntrega }}</span>
                   </span>
                   <span class="shrink-0 text-xs font-medium text-brand-700/70">$ {{ p.total | number:'1.0-0' }}</span>

@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
@@ -11,7 +12,7 @@ import { MapaRuta } from '../../components/mapa-ruta/mapa-ruta';
 
 @Component({
   selector: 'app-reparto',
-  imports: [DecimalPipe, MapaRuta],
+  imports: [DecimalPipe, FormsModule, MapaRuta],
   templateUrl: './reparto.html',
 })
 export class Reparto {
@@ -25,6 +26,8 @@ export class Reparto {
   protected sinRuta = signal(false);
   protected procesando = signal(false);
   protected seleccionadaId = signal<number | null>(null);
+  protected paradaAFallar = signal<RutaPedidoResponse | null>(null);
+  protected motivoFallo = signal('');
 
   protected readonly ESTADO_ENTREGA_LABELS = ESTADO_ENTREGA_LABELS;
   protected readonly ESTADO_RUTA_LABELS = ESTADO_RUTA_LABELS;
@@ -128,12 +131,43 @@ export class Reparto {
   private estadoPedidoDe(estado: EstadoEntrega): EstadoPedido {
     switch (estado) {
       case 'ENTREGADO': return 'ENTREGADO';
-      case 'FALLIDO': return 'CANCELADO';
+      case 'FALLIDO': return 'REPROGRAMADO';
       default: return 'PENDIENTE';
     }
   }
 
-  protected async marcarParada(p: RutaPedidoResponse, estado: EstadoEntrega): Promise<void> {
+  protected pedirMotivoFallo(p: RutaPedidoResponse): void {
+    if (this.procesando()) return;
+    if (!this.enCurso()) {
+      this.toast.error('Iniciá el reparto antes de actualizar las paradas.');
+      return;
+    }
+    this.motivoFallo.set('');
+    this.paradaAFallar.set(p);
+  }
+
+  protected cancelarDialogoFallo(): void {
+    this.paradaAFallar.set(null);
+    this.motivoFallo.set('');
+  }
+
+  protected async confirmarFallo(): Promise<void> {
+    const p = this.paradaAFallar();
+    if (!p) return;
+    const motivo = this.motivoFallo().trim();
+    if (motivo === '') {
+      this.toast.error('Indicá el motivo de la cancelación.');
+      return;
+    }
+    await this.marcarParada(p, 'FALLIDO', motivo);
+    this.cancelarDialogoFallo();
+  }
+
+  protected async marcarParada(
+    p: RutaPedidoResponse,
+    estado: EstadoEntrega,
+    motivoFallo?: string,
+  ): Promise<void> {
     if (this.procesando()) return;
     if (!this.enCurso()) {
       this.toast.error('Iniciá el reparto antes de actualizar las paradas.');
@@ -141,13 +175,13 @@ export class Reparto {
     }
     this.procesando.set(true);
     try {
-      await this.apiRuta.actualizarEstadoParada(p.id, estado);
+      await this.apiRuta.actualizarEstadoParada(p.id, estado, motivoFallo);
       try {
         await this.apiPedido.cambiarEstado(p.pedidoId, this.estadoPedidoDe(estado));
       } catch {
         this.toast.mostrar('Parada actualizada; el estado del pedido se sincronizará luego.', 'info');
       }
-      this.actualizarParadaLocal(p.id, estado);
+      this.actualizarParadaLocal(p.id, estado, motivoFallo);
       this.toast.exito(`Parada #${p.orden} → ${ESTADO_ENTREGA_LABELS[estado]}.`);
     } catch (e) {
       this.toast.error(this.msgError(e, 'No se pudo actualizar la parada.'));
@@ -173,13 +207,15 @@ export class Reparto {
     }
   }
 
-  private actualizarParadaLocal(rutaPedidoId: number, estado: EstadoEntrega): void {
+  private actualizarParadaLocal(rutaPedidoId: number, estado: EstadoEntrega, motivoFallo?: string): void {
     this.ruta.update((r) => {
       if (!r) return r;
       return {
         ...r,
         paradas: r.paradas.map((p) =>
-          p.id === rutaPedidoId ? { ...p, estadoEntrega: estado } : p,
+          p.id === rutaPedidoId
+            ? { ...p, estadoEntrega: estado, motivoFallo: estado === 'FALLIDO' ? (motivoFallo ?? p.motivoFallo) : p.motivoFallo }
+            : p,
         ),
       };
     });

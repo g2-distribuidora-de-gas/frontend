@@ -32,7 +32,7 @@ export class RutasAdmin {
   protected busqueda = signal('');
   protected rutaCreada = signal<RutaResponse | null>(null);
   protected pendientes = computed(() =>
-    this.pedidos().filter((p) => p.estado === 'PENDIENTE'),
+    this.pedidos().filter((p) => p.estado === 'PENDIENTE' || p.estado === 'REPROGRAMADO'),
   );
 
   protected pendientesFiltrados = computed(() => {
@@ -105,7 +105,7 @@ export class RutasAdmin {
       this.rutaCreada.set(ruta);
       this.toast.exito('Ruta planificada correctamente con LocationIQ.');
       this.limpiarSeleccion();
-      await this.cargar(); 
+      await this.cargar();
     } catch (e) {
       this.toast.error(this.msgError(e, 'No se pudo planificar la ruta.'));
     } finally {

@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import {EstadoEntrega, EstadoRuta, RutaPlanificarRequest, RutaResponse} from '../models/ruta.model';
+import {ActualizarParadaRequest, EstadoEntrega, EstadoRuta, RutaPlanificarRequest, RutaResponse} from '../models/ruta.model';
 
 
 @Injectable({ providedIn: 'root' })
@@ -20,9 +20,14 @@ export class ApiRutaService {
   async actualizarEstadoParada(
     rutaPedidoId: number,
     nuevoEstado: EstadoEntrega,
+    motivoFallo?: string,
   ): Promise<void> {
+    const body: ActualizarParadaRequest = { nuevoEstado };
+    if (motivoFallo != null && motivoFallo.trim() !== '') {
+      body.motivoFallo = motivoFallo.trim();
+    }
     return firstValueFrom(
-      this.http.patch<void>(`/api/rutas/paradas/${rutaPedidoId}`, { nuevoEstado }),
+      this.http.patch<void>(`/api/rutas/paradas/${rutaPedidoId}`, body),
     );
   }
 

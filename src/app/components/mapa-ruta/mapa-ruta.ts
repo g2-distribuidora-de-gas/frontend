@@ -89,18 +89,27 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
     const bounds = L.latLngBounds([]);
 
     const geo = this.parseGeometria(this.geometria());
+    let geoDibujada = false;
     if (geo) {
       const linea = L.geoJSON(geo as any, {
         style: { color: '#d4a233', weight: 4, opacity: 0.85 },
       });
       linea.addTo(this.capaRuta);
       try {
-        bounds.extend(linea.getBounds());
+        const b = linea.getBounds();
+        if (b.isValid()) {
+          bounds.extend(b);
+          geoDibujada = true;
+        }
       } catch { /* geometría vacía */ }
     }
 
     const oLat = this.origenLat();
     const oLng = this.origenLng();
+    if (!geoDibujada) {
+      this.dibujarTrazadoParadas(oLat, oLng);
+    }
+
     if (oLat != null && oLng != null) {
       const m = L.marker([oLat, oLng], { icon: this.iconoOrigen() });
       m.bindTooltip('Origen / depósito');
@@ -128,6 +137,31 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
     } else {
       this.map.setView([-26.1916378, -58.1850831], 12);
     }
+  }
+  private dibujarTrazadoParadas(oLat?: number | null, oLng?: number | null): void {
+    if (!this.capaRuta) return;
+
+    const puntos: L.LatLngExpression[] = [];
+    if (oLat != null && oLng != null) {
+      puntos.push([oLat, oLng]);
+    }
+
+    const ordenadas = [...this.paradas()].sort((a, b) => a.orden - b.orden);
+    for (const p of ordenadas) {
+      const lat = p.cliente?.latitud;
+      const lng = p.cliente?.longitud;
+      if (lat == null || lng == null) continue;
+      puntos.push([Number(lat), Number(lng)]);
+    }
+
+    if (puntos.length < 2) return;
+
+    L.polyline(puntos, {
+      color: '#d4a233',
+      weight: 3,
+      opacity: 0.75,
+      dashArray: '6 8',
+    }).addTo(this.capaRuta);
   }
 
   private enfocar(id: number): void {

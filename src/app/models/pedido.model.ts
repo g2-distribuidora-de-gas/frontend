@@ -2,7 +2,7 @@ import type { Cliente } from './cliente.model';
 import type { Garrafa, TipoGarrafa } from './garrafa.model';
 
 /** Estados alineados con el enum EstadoPedido del backend */
-export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO';
+export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO' | 'REPROGRAMADO';
 
 /** Labels legibles para la UI */
 export const ESTADO_LABELS: Record<EstadoPedido, string> = {
@@ -10,6 +10,7 @@ export const ESTADO_LABELS: Record<EstadoPedido, string> = {
   EN_PROCESO: 'En proceso',
   ENTREGADO: 'Entregado',
   CANCELADO: 'Cancelado',
+  REPROGRAMADO: 'Reprogramado',
 };
 
 /** Detalle de pedido embebido dentro del documento Pedido */
