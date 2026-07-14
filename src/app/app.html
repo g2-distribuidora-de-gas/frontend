@@ -35,6 +35,10 @@
                 >Mi reparto</a>
               }
               @if (auth.esAdministrativo()) {
+                <a routerLink="/pedidos"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Pedidos</a>
                 <a routerLink="/admin/usuarios"
                   routerLinkActive="bg-white text-brand-700 shadow-sm"
                   class="rounded-full px-3 py-1.5 transition-colors hover:text-white"

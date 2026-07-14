@@ -8,6 +8,7 @@ import {
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { clienteSchema, ClienteDocType } from '../schemas/cliente.schema';
 import { garrafaSchema, GarrafaDocType } from '../schemas/garrafa.schema';
@@ -70,8 +71,11 @@ export class RxDatabaseService {
   async init(): Promise<void> {
     if (this._db) return;
 
-    if (!environment.production && !RxDatabaseService.pluginsListos) {
-      addRxPlugin(RxDBDevModePlugin);
+    if (!RxDatabaseService.pluginsListos) {
+      addRxPlugin(RxDBMigrationSchemaPlugin);
+      if (!environment.production) {
+        addRxPlugin(RxDBDevModePlugin);
+      }
       RxDatabaseService.pluginsListos = true;
     }
 
@@ -96,7 +100,12 @@ export class RxDatabaseService {
     await this._db.addCollections({
       clientes: { schema: clienteSchema },
       garrafas: { schema: garrafaSchema },
-      pedidos: { schema: pedidoSchema },
+      pedidos: {
+        schema: pedidoSchema,
+        migrationStrategies: {
+          1: (doc) => doc,
+        },
+      },
     });
 
     console.log('[RxDatabaseService] Base de datos inicializada con colecciones:', Object.keys(this._db.collections));

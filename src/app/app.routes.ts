@@ -17,7 +17,7 @@ export const routes: Routes = [
   },
   {
     path: 'pedidos',
-    canActivate: [roleGuard('PREVENTISTA')],
+    canActivate: [roleGuard('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')],
     loadComponent: () => import('./pages/pedidos/pedidos').then((m) => m.Pedidos),
     title: 'Pedidos | Distribuidora de Gas',
   },

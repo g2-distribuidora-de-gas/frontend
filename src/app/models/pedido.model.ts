@@ -25,6 +25,7 @@ export interface DetallePedido {
 export interface Pedido {
   uuidOffline: string;
   backendId?: number;
+  creadorId?: number;
   clienteId: string;
   direccionEntrega: string;
   estado: EstadoPedido;
