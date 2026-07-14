@@ -75,7 +75,7 @@ export class MapaRuta implements AfterViewInit, OnDestroy {
       html:
         '<div style="display:grid;place-items:center;width:26px;height:26px;border-radius:50%;' +
         'background:#1f2937;color:#fff;font-size:11px;font-weight:700;border:2px solid #fff;' +
-        'box-shadow:0 1px 3px rgba(0,0,0,.4)">🏭</div>',
+        'box-shadow:0 1px 3px rgba(0,0,0,.4)">.</div>',
       iconSize: [26, 26],
       iconAnchor: [13, 13],
     });
