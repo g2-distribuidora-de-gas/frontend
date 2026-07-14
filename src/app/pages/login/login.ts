@@ -51,9 +51,10 @@ export class Login {
 
     try {
       const usuario = await this.auth.login({ email, password });
-      await this.replication.iniciar();
+      if (this.auth.esPreventista()) {
+        await this.replication.iniciar();}
       this.toast.mostrar(`¡Bienvenido, ${usuario.nombreCompleto}!`, 'exito');
-      await this.router.navigate(['/toma-pedido']);
+      await this.router.navigateByUrl(this.auth.rutaInicial());
     } catch (e) {
       this.error.set(this.mensajeError(e));
     } finally {

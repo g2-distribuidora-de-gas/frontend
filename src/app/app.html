@@ -18,16 +18,36 @@
             </span>
 
             <nav class="flex gap-1 rounded-full bg-brand-600/60 p-1 text-sm font-medium text-brand-50">
-              <a
-                routerLink="/toma-pedido"
-                routerLinkActive="bg-white text-brand-700 shadow-sm"
-                class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-              >Nuevo pedido</a>
-              <a
-                routerLink="/pedidos"
-                routerLinkActive="bg-white text-brand-700 shadow-sm"
-                class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-              >Pedidos</a>
+              @if (auth.esPreventista()) {
+                <a routerLink="/toma-pedido"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Nuevo pedido</a>
+                <a routerLink="/pedidos"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Pedidos</a>
+              }
+              @if (auth.esRepartidor()) {
+                <a routerLink="/reparto"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Mi reparto</a>
+              }
+              @if (auth.esAdministrativo()) {
+                <a routerLink="/admin/usuarios"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Usuarios</a>
+                <a routerLink="/admin/garrafas"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Garrafas</a>
+                <a routerLink="/admin/rutas"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Rutas</a>
+              }
             </nav>
 
             @if (auth.usuario(); as u) {

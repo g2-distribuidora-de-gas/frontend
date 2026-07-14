@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { Usuario, UsuarioRequest, UsuarioResponse } from '../models/usuario.model';
+import { AuthResponse, RegisterRequest } from '../models/auth.model';
 
 @Injectable({ providedIn: 'root' })
 export class ApiUsuarioService {
@@ -15,6 +16,10 @@ export class ApiUsuarioService {
   /** POST /api/usuarios */
   async crear(request: UsuarioRequest): Promise<UsuarioResponse> {
     return firstValueFrom(this.http.post<UsuarioResponse>('/api/usuarios', request));
+  }
+
+  async registrar(request: RegisterRequest): Promise<AuthResponse> {
+    return firstValueFrom(this.http.post<AuthResponse>('/api/auth/register', request));
   }
 
   /** DELETE /api/usuarios/:id — baja lógica en el backend */

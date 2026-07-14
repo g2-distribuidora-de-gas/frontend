@@ -117,20 +117,6 @@
                   </div>
                 }
               </div>
-
-              <div class="mt-3 flex items-center gap-2">
-                <label class="text-xs font-medium text-brand-700/70" [for]="'estado-' + p.uuidOffline">Cambiar estado:</label>
-                <select
-                  [id]="'estado-' + p.uuidOffline"
-                  [ngModel]="p.estado"
-                  (ngModelChange)="cambiarEstado(p, $event)"
-                  class="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
-                >
-                  @for (e of estados; track e.id) {
-                    <option [value]="e.id">{{ e.nombre }}</option>
-                  }
-                </select>
-              </div>
             </div>
           }
         </li>

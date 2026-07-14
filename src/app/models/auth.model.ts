@@ -23,3 +23,13 @@ export interface AuthUser {
   nombreCompleto: string;
   rol: RolUsuario;
 }
+export interface RegisterRequest {
+  nombre: string;
+  apellido: string;
+  dni: string;
+  telefono?: string;
+  direccion?: string;
+  email: string;
+  password: string;
+  rol: RolUsuario;
+}

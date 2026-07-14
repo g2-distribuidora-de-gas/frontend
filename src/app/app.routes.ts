@@ -1,8 +1,8 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './guards/auth.guard';
+import { guestGuard, roleGuard, homeRedirectGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'toma-pedido' },
+  { path: '', pathMatch: 'full', canActivate: [homeRedirectGuard], children: [] },
   {
     path: 'login',
     canActivate: [guestGuard],
@@ -11,15 +11,40 @@ export const routes: Routes = [
   },
   {
     path: 'toma-pedido',
-    canActivate: [authGuard],
+    canActivate: [roleGuard('PREVENTISTA')],
     loadComponent: () => import('./pages/toma-pedido/toma-pedido').then((m) => m.TomaPedido),
     title: 'Nuevo pedido | Distribuidora de Gas',
   },
   {
     path: 'pedidos',
-    canActivate: [authGuard],
+    canActivate: [roleGuard('PREVENTISTA')],
     loadComponent: () => import('./pages/pedidos/pedidos').then((m) => m.Pedidos),
     title: 'Pedidos | Distribuidora de Gas',
   },
-  { path: '**', redirectTo: 'toma-pedido' },
+  {
+    path: 'reparto',
+    canActivate: [roleGuard('REPARTIDOR')],
+    loadComponent: () => import('./pages/reparto/reparto').then((m) => m.Reparto),
+    title: 'Mi reparto | Distribuidora de Gas',
+  },
+  {
+    path: 'admin/usuarios',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/usuarios/usuarios').then((m) => m.Usuarios),
+    title: 'Usuarios | Distribuidora de Gas',
+  },
+    {
+    path: 'admin/garrafas',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/garrafas/garrafas').then((m) => m.GarrafasAdmin),
+    title: 'Garrafas | Distribuidora de Gas',
+  },
+  {
+    path: 'admin/rutas',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/rutas/rutas').then((m) => m.RutasAdmin),
+    title: 'Planificar rutas | Distribuidora de Gas',
+  },
+
+  { path: '**', redirectTo: '' },
 ];

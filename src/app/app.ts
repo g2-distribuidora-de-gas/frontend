@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { ToastService } from './services/toast.service';
 import { ReplicationService } from './services/replication.service';
@@ -7,7 +7,7 @@ import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink],
   templateUrl: './app.html',
 })
 export class App {
@@ -26,8 +26,9 @@ export class App {
 
     window.addEventListener('online', () => {
       this.online.set(true);
-
-      this.replication.resincronizar();
+      if (this.auth.esPreventista()) {
+        this.replication.resincronizar();
+      }
     });
     window.addEventListener('offline', () => this.online.set(false));
   }
