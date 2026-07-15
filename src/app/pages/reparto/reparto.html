@@ -59,7 +59,7 @@
             class="rounded-2xl border bg-white p-3 shadow-sm transition-colors"
             [class]="seleccionadaId() === p.id ? 'border-brand-400 ring-1 ring-brand-300' : 'border-brand-200'"
           >
-            <button (click)="seleccionar(p)" class="flex w-full items-start gap-3 text-left">
+            <button (click)="abrirDetalle(p)" class="flex w-full items-start gap-3 text-left">
               <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500 text-xs font-bold text-white">{{ p.orden }}</span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm font-semibold text-brand-900">{{ p.cliente?.nombre ?? 'Cliente' }}</span>
@@ -136,6 +136,110 @@
             class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50">Volver</button>
           <button (click)="confirmarFallo()" [disabled]="procesando() || motivoFallo().trim() === ''"
             class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">Confirmar cancelación</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (paradaModal(); as p) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="cerrarDetalle()">
+      <div
+        class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white">{{ p.orden }}</span>
+            <div class="min-w-0">
+              <h2 class="truncate text-lg font-bold text-brand-900">{{ p.cliente?.nombre ?? 'Cliente' }}</h2>
+              <p class="truncate text-sm text-brand-700/70">{{ p.cliente?.direccion }}</p>
+              @if (p.cliente?.telefono) {
+                <p class="text-xs text-brand-700/60">Tel: {{ p.cliente?.telefono }}</p>
+              }
+            </div>
+          </div>
+          <button (click)="cerrarDetalle()" aria-label="Cerrar"
+            class="shrink-0 rounded-full p-1.5 text-brand-700/60 hover:bg-brand-50 hover:text-brand-800">✕</button>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <span class="rounded-full border px-2 py-0.5 text-xs font-medium" [class]="claseEntrega(p.estadoEntrega)">
+            Entrega: {{ ESTADO_ENTREGA_LABELS[p.estadoEntrega] }}
+          </span>
+          @if (pedidoModal(); as ped) {
+            <span class="rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+              Pedido #{{ ped.id }} · {{ ESTADO_PEDIDO_LABELS[ped.estado] }}
+            </span>
+          }
+        </div>
+
+        @if (p.cliente?.latitud != null && p.cliente?.longitud != null) {
+          <div class="mt-4 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-brand-700/80">Ubicación del cliente</span>
+              <a [href]="mapsUrl(p)" target="_blank" rel="noopener noreferrer"
+                class="text-xs font-semibold text-brand-600 underline hover:text-brand-700">Abrir en Google Maps ↗</a>
+            </div>
+            <app-mapa-vista
+              [lat]="p.cliente!.latitud!"
+              [lng]="p.cliente!.longitud!"
+              [etiqueta]="p.cliente?.nombre ?? ''"
+            />
+          </div>
+        } @else {
+          <p class="mt-4 text-xs text-brand-700/50"> Este cliente no tiene ubicación cargada.</p>
+        }
+
+        <div class="mt-4">
+          <span class="text-xs font-semibold text-brand-700/80">Detalle del pedido</span>
+          @if (cargandoPedido()) {
+            <p class="py-4 text-center text-sm text-brand-700/60">Cargando detalles…</p>
+          } @else if (pedidoModal(); as ped) {
+            <ul class="mt-1 divide-y divide-brand-100 rounded-xl border border-brand-100 text-sm">
+              @for (d of ped.detalles; track d.id) {
+                <li class="flex items-center justify-between px-3 py-2">
+                  <span>{{ d.cantidad }} × {{ nombreGarrafa(d.garrafaTipo) }}</span>
+                  <span class="tabular-nums">$ {{ d.subtotal | number: '1.0-0' }}
+                    <span class="text-xs text-brand-700/50">(u. $ {{ d.precioUnitario | number: '1.0-0' }})</span>
+                  </span>
+                </li>
+              } @empty {
+                <li class="px-3 py-2 text-xs text-brand-700/50">Sin ítems.</li>
+              }
+            </ul>
+            <div class="mt-2 flex items-center justify-between px-1 text-sm font-semibold text-brand-900">
+              <span>Total</span>
+              <span class="tabular-nums">$ {{ ped.total | number: '1.0-0' }}</span>
+            </div>
+            @if (ped.direccionEntrega) {
+              <p class="mt-2 text-xs text-brand-700/70"><span class="font-semibold">Entrega:</span> {{ ped.direccionEntrega }}</p>
+            }
+          } @else {
+            <p class="py-4 text-center text-sm text-brand-700/50">No se pudieron cargar los detalles.</p>
+          }
+        </div>
+
+        @if (pedidoModal()?.urlFotoEvidencia; as foto) {
+          <div class="mt-4 space-y-1.5">
+            <span class="text-xs font-semibold text-brand-700/80">Foto</span>
+            <img
+              [src]="foto"
+              alt="Foto del pedido / fachada del cliente"
+              class="aspect-square w-full rounded-xl border border-brand-200 bg-brand-50 object-contain"
+              (error)="$any($event.target).style.display = 'none'"
+            />
+          </div>
+        }
+
+        @if (p.estadoEntrega === 'FALLIDO' && p.motivoFallo) {
+          <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+            <span class="font-semibold">Motivo de cancelación:</span> {{ p.motivoFallo }}
+          </p>
+        }
+
+        <div class="mt-5 flex justify-end">
+          <button (click)="cerrarDetalle()"
+            class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-semibold text-brand-700 hover:bg-brand-50">Cerrar</button>
         </div>
       </div>
     </div>

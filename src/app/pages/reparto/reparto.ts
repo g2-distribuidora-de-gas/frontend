@@ -7,12 +7,14 @@ import { ApiRutaService } from '../../services/api-ruta.service';
 import { ApiPedidoService } from '../../services/api-pedido.service';
 import { ToastService } from '../../services/toast.service';
 import {EstadoEntrega, ESTADO_ENTREGA_LABELS, ESTADO_RUTA_LABELS, RutaPedidoResponse,RutaResponse} from '../../models/ruta.model';
-import { EstadoPedido } from '../../models/pedido.model';
+import { EstadoPedido, ESTADO_LABELS, PedidoResponse } from '../../models/pedido.model';
+import { nombreGarrafa } from '../../models/garrafa.model';
 import { MapaRuta } from '../../components/mapa-ruta/mapa-ruta';
+import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 
 @Component({
   selector: 'app-reparto',
-  imports: [DecimalPipe, FormsModule, MapaRuta],
+  imports: [DecimalPipe, FormsModule, MapaRuta, MapaVista],
   templateUrl: './reparto.html',
 })
 export class Reparto {
@@ -29,8 +31,15 @@ export class Reparto {
   protected paradaAFallar = signal<RutaPedidoResponse | null>(null);
   protected motivoFallo = signal('');
 
+  // Modal de detalle de la parada / pedido
+  protected paradaModal = signal<RutaPedidoResponse | null>(null);
+  protected pedidoModal = signal<PedidoResponse | null>(null);
+  protected cargandoPedido = signal(false);
+
   protected readonly ESTADO_ENTREGA_LABELS = ESTADO_ENTREGA_LABELS;
   protected readonly ESTADO_RUTA_LABELS = ESTADO_RUTA_LABELS;
+  protected readonly ESTADO_PEDIDO_LABELS = ESTADO_LABELS;
+  protected readonly nombreGarrafa = nombreGarrafa;
 
   protected paradas = computed(() =>
     [...(this.ruta()?.paradas ?? [])].sort((a, b) => a.orden - b.orden),
@@ -86,6 +95,29 @@ export class Reparto {
 
   protected seleccionar(p: RutaPedidoResponse): void {
     this.seleccionadaId.set(p.id);
+  }
+
+  protected async abrirDetalle(p: RutaPedidoResponse): Promise<void> {
+    this.seleccionadaId.set(p.id);
+    this.paradaModal.set(p);
+    this.pedidoModal.set(null);
+    this.cargandoPedido.set(true);
+    try {
+      const pedido = await this.apiPedido.obtenerPorId(p.pedidoId);
+      if (this.paradaModal()?.id === p.id) {
+        this.pedidoModal.set(pedido);
+      }
+    } catch (e) {
+      this.toast.error(this.msgError(e, 'No se pudieron cargar los detalles del pedido.'));
+    } finally {
+      this.cargandoPedido.set(false);
+    }
+  }
+
+  protected cerrarDetalle(): void {
+    this.paradaModal.set(null);
+    this.pedidoModal.set(null);
+    this.cargandoPedido.set(false);
   }
 
 
