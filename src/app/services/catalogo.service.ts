@@ -5,6 +5,7 @@ import { RxDatabaseService } from './rx-database.service';
 import { ApiClienteService } from './api-cliente.service';
 import { ApiGarrafaService } from './api-garrafa.service';
 import { DbRecoveryService } from './db-recovery.service';
+import { ReplicationService } from './replication.service';
 import { Observable, EMPTY } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
@@ -14,6 +15,7 @@ export class CatalogoService {
   private apiCliente = inject(ApiClienteService);
   private apiGarrafa = inject(ApiGarrafaService);
   private recovery = inject(DbRecoveryService);
+  private replication = inject(ReplicationService);
 
   garrafasActivas$(): Observable<Garrafa[]> {
     return this.protegerDbCerrada(
@@ -133,61 +135,87 @@ export class CatalogoService {
   async crearCliente(
     datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo'>,
   ): Promise<string> {
-    if (!navigator.onLine) {
-      throw new Error('No se pueden crear clientes.');
-    }
+    const uuid = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
-    const resp = await this.apiCliente.crear({
-      nombre: nombreCompleto,
-      telefono: datos.telefono || undefined,
-      direccion: datos.direccion,
-    });
-
-    const local: Cliente = {
-      id: String(resp.id),
+    const local = {
+      id: uuid,
+      backendId: null,
+      sincronizado: false,
       nombre: datos.nombre,
       apellido: datos.apellido,
       dni: datos.dni,
-      telefono: resp.telefono ?? datos.telefono ?? '',
-      direccion: resp.direccion ?? datos.direccion,
+      telefono: datos.telefono ?? '',
+      direccion: datos.direccion,
       activo: true,
-      latitud: datos.latitud ?? resp.latitud ?? null,
-      longitud: datos.longitud ?? resp.longitud ?? null,
-      placeId: datos.placeId ?? resp.placeId ?? null,
-      updatedAt: new Date().toISOString(),
-    };
+      latitud: datos.latitud ?? null,
+      longitud: datos.longitud ?? null,
+      placeId: datos.placeId ?? null,
+      updatedAt: now,
+    } satisfies Cliente;
     await this.rxDb.clientes.upsert(local);
-    return local.id;
+
+    if (navigator.onLine) {
+      try {
+        await this.replication.asegurarClienteSincronizado(uuid);
+      } catch {
+      }
+    }
+
+    return uuid;
+  }
+
+
+  async backendIdDe(id: string): Promise<number | null> {
+    const doc = await this.rxDb.clientes.findOne(id).exec();
+    if (doc?.backendId != null) return doc.backendId;
+    return /^\d+$/.test(id) ? Number(id) : null;
   }
 
   async editarCliente(
     id: string,
     datos: Omit<Cliente, 'id' | 'updatedAt' | 'activo'>,
   ): Promise<void> {
-    if (!navigator.onLine) {
-      throw new Error('No se pueden editar clientes.');
-    }
-    const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
-    const resp = await this.apiCliente.actualizar(Number(id), {
-      nombre: nombreCompleto,
-      telefono: datos.telefono || undefined,
-      direccion: datos.direccion,
-      latitud: datos.latitud ?? null,
-      longitud: datos.longitud ?? null,
-    });
-
     const doc = await this.rxDb.clientes.findOne(id).exec();
     if (!doc) throw new Error('Cliente no encontrado.');
+
+    const yaEnBackend = doc.sincronizado && doc.backendId != null;
+
+    if (yaEnBackend) {
+      if (!navigator.onLine) {
+        throw new Error('No se pueden editar clientes sin conexión.');
+      }
+      const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
+      const resp = await this.apiCliente.actualizar(doc.backendId!, {
+        nombre: nombreCompleto,
+        telefono: datos.telefono || undefined,
+        direccion: datos.direccion,
+        latitud: datos.latitud ?? null,
+        longitud: datos.longitud ?? null,
+      });
+      await doc.patch({
+        nombre: datos.nombre,
+        apellido: datos.apellido,
+        dni: datos.dni,
+        telefono: resp.telefono ?? datos.telefono ?? '',
+        direccion: resp.direccion ?? datos.direccion,
+        latitud: datos.latitud ?? resp.latitud ?? null,
+        longitud: datos.longitud ?? resp.longitud ?? null,
+        placeId: datos.placeId ?? resp.placeId ?? null,
+        updatedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
     await doc.patch({
       nombre: datos.nombre,
       apellido: datos.apellido,
       dni: datos.dni,
-      telefono: resp.telefono ?? datos.telefono ?? '',
-      direccion: resp.direccion ?? datos.direccion,
-      latitud: datos.latitud ?? resp.latitud ?? null,
-      longitud: datos.longitud ?? resp.longitud ?? null,
-      placeId: datos.placeId ?? resp.placeId ?? null,
+      telefono: datos.telefono ?? '',
+      direccion: datos.direccion,
+      latitud: datos.latitud ?? null,
+      longitud: datos.longitud ?? null,
+      placeId: datos.placeId ?? null,
       updatedAt: new Date().toISOString(),
     });
   }

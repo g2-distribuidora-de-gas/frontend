@@ -98,7 +98,16 @@ export class RxDatabaseService {
     });
 
     await this._db.addCollections({
-      clientes: { schema: clienteSchema },
+      clientes: {
+        schema: clienteSchema,
+        migrationStrategies: {
+          1: (doc) => ({
+            ...doc,
+            backendId: /^\d+$/.test(doc.id) ? Number(doc.id) : null,
+            sincronizado: true,
+          }),
+        },
+      },
       garrafas: { schema: garrafaSchema },
       pedidos: {
         schema: pedidoSchema,
