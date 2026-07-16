@@ -7,11 +7,13 @@ import {
 
 export const clienteSchemaLiteral = {
   title: 'cliente schema',
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
     id: { type: 'string', maxLength: 36 },
+    backendId: { type: ['number', 'null'] },
+    sincronizado: { type: 'boolean' },
     nombre: { type: 'string' },
     apellido: { type: 'string' },
     dni: { type: 'string', maxLength: 20 },
@@ -23,8 +25,8 @@ export const clienteSchemaLiteral = {
     placeId: { type: ['string', 'null'] },
     updatedAt: { type: 'string', maxLength: 50 },
   },
-  required: ['id', 'nombre', 'activo', 'updatedAt'] as const,
-  indexes: ['updatedAt'],
+  required: ['id', 'nombre', 'activo', 'sincronizado', 'updatedAt'] as const,
+  indexes: ['updatedAt', 'sincronizado'],
 } as const;
 
 const schemaTyped = toTypedRxJsonSchema(clienteSchemaLiteral);

@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import {ActualizarParadaRequest, EstadoEntrega, EstadoRuta, RutaPlanificarRequest, RutaResponse} from '../models/ruta.model';
+import {ActualizarParadaRequest, DeliveryReadOnlyResponse, EstadoEntrega, EstadoRuta, RutaPlanificarRequest, RutaResponse, SincronizacionParadasRequest, SincronizacionParadasResponse, SincronizacionRutasRequest, SincronizacionRutasResponse} from '../models/ruta.model';
 
 
 @Injectable({ providedIn: 'root' })
@@ -35,6 +35,28 @@ export class ApiRutaService {
     const params = new HttpParams().set('estado', estado);
     return firstValueFrom(
       this.http.patch<RutaResponse>(`/api/rutas/${rutaId}/estado`, null, { params }),
+    );
+  }
+
+  async obtenerPedidoDeParada(rutaPedidoId: number): Promise<DeliveryReadOnlyResponse> {
+    return firstValueFrom(
+      this.http.get<DeliveryReadOnlyResponse>(`/api/rutas/paradas/${rutaPedidoId}/pedido`),
+    );
+  }
+
+  async sincronizarParadas(
+    request: SincronizacionParadasRequest,
+  ): Promise<SincronizacionParadasResponse> {
+    return firstValueFrom(
+      this.http.post<SincronizacionParadasResponse>('/api/sincronizar/paradas', request),
+    );
+  }
+
+  async sincronizarRutas(
+    request: SincronizacionRutasRequest,
+  ): Promise<SincronizacionRutasResponse> {
+    return firstValueFrom(
+      this.http.post<SincronizacionRutasResponse>('/api/sincronizar/rutas', request),
     );
   }
 }

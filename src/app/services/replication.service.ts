@@ -32,6 +32,8 @@ export class ReplicationService {
   private subscriptions: Subscription[] = [];
   private iniciada = false;
 
+  private clientesEnCurso = new Map<string, Promise<number | null>>();
+
 
   async iniciar(): Promise<void> {
     if (this.iniciada) return;
@@ -40,6 +42,26 @@ export class ReplicationService {
     this.iniciarReplicacionGarrafas();
     this.iniciarReplicacionPedidos();
     console.log('[ReplicationService] Replicación iniciada para todas las colecciones.');
+    void this.reintentarPendientes();
+  }
+
+  async reintentarPendientes(): Promise<void> {
+    try {
+      const clientesPend = await this.rxDb.clientes
+        .find({ selector: { sincronizado: false } })
+        .exec();
+      for (const d of clientesPend) {
+        await d.patch({ updatedAt: new Date().toISOString() });
+      }
+      const pedidosPend = await this.rxDb.pedidos
+        .find({ selector: { sincronizado: false } })
+        .exec();
+      for (const d of pedidosPend) {
+        await d.patch({ updatedAt: new Date().toISOString() });
+      }
+    } catch (e) {
+      console.warn('[ReplicationService] No se pudieron reintentar los pendientes.', e);
+    }
   }
 
 
@@ -57,15 +79,24 @@ export class ReplicationService {
           try {
             const respuesta = await this.apiCliente.listarTodos();
 
-          
             const existentesDocs = await this.rxDb.clientes.find().exec();
-            const existentes = new Map(existentesDocs.map((d) => [d.id, d]));
+            const porId = new Map<string, ClienteDocType>();
+            const porBackendId = new Map<number, ClienteDocType>();
+            for (const d of existentesDocs) {
+              const j = d.toJSON() as ClienteDocType;
+              porId.set(j.id, j);
+              if (j.backendId != null) porBackendId.set(j.backendId, j);
+            }
 
             const documents = respuesta.map((c) => {
-              const id = String(c.id);
-              const ex = existentes.get(id);
+              const ex =
+                (c.uuidOffline ? porId.get(c.uuidOffline) : undefined) ??
+                porBackendId.get(c.id);
+              const id = c.uuidOffline ?? ex?.id ?? String(c.id);
               return {
                 id,
+                backendId: c.id,
+                sincronizado: true,
                 nombre: ex?.nombre ?? c.nombre,
                 apellido: ex?.apellido ?? '',
                 dni: ex?.dni ?? '',
@@ -96,11 +127,95 @@ export class ReplicationService {
         },
       },
 
-      push: undefined,
+      push: {
+        batchSize: 20,
+        handler: async (rows) => {
+          const pendientes = rows
+            .map((row) => row.newDocumentState)
+            .filter((d) => !d.sincronizado && !(d as any)._deleted);
+
+          for (const d of pendientes) {
+            try {
+              await this.asegurarClienteSincronizado(d.id);
+            } catch (error: any) {
+              if (error?.status === 0 || !navigator.onLine) {
+                console.warn('[ReplicationService] Offline, clientes se sincronizarán al volver la conexión.');
+                throw error;
+              }
+              console.error('[ReplicationService] Error al sincronizar cliente', d.id, error);
+            }
+          }
+
+          return [];
+        },
+      },
     });
 
     this.registrarEventos(state, 'clientes');
     this.replicationStates.push(state);
+  }
+
+  async asegurarClienteSincronizado(clienteId: string): Promise<number | null> {
+    const enCurso = this.clientesEnCurso.get(clienteId);
+    if (enCurso) return enCurso;
+
+    const promesa = this.crearClienteEnBackend(clienteId).finally(() => {
+      this.clientesEnCurso.delete(clienteId);
+    });
+    this.clientesEnCurso.set(clienteId, promesa);
+    return promesa;
+  }
+
+  private async crearClienteEnBackend(clienteId: string): Promise<number | null> {
+    const doc = await this.rxDb.clientes.findOne(clienteId).exec();
+    if (!doc) {
+      return /^\d+$/.test(clienteId) ? Number(clienteId) : null;
+    }
+    if (doc.backendId != null) return doc.backendId;
+
+    const nombreCompleto = `${doc.nombre} ${doc.apellido ?? ''}`.trim();
+    try {
+      const resp = await this.apiCliente.crear({
+        uuidOffline: doc.id,
+        nombre: nombreCompleto,
+        telefono: doc.telefono || undefined,
+        direccion: doc.direccion ?? '',
+        latitud: doc.latitud ?? null,
+        longitud: doc.longitud ?? null,
+      });
+      await doc.patch({
+        backendId: resp.id,
+        sincronizado: true,
+        updatedAt: new Date().toISOString(),
+      });
+      return resp.id;
+    } catch (error: any) {
+      if (error?.status === 0 || !navigator.onLine) {
+        throw error;
+      }
+      const yaResuelto = await this.resolverBackendIdPorUuid(doc.id);
+      if (yaResuelto != null) {
+        await doc.patch({
+          backendId: yaResuelto,
+          sincronizado: true,
+          updatedAt: new Date().toISOString(),
+        });
+        return yaResuelto;
+      }
+      throw error;
+    }
+  }
+
+  private async resolverBackendIdPorUuid(uuidOffline: string): Promise<number | null> {
+    const doc = await this.rxDb.clientes.findOne(uuidOffline).exec();
+    if (doc?.backendId != null) return doc.backendId;
+    try {
+      const lista = await this.apiCliente.listarTodos();
+      const encontrado = lista.find((c) => c.uuidOffline === uuidOffline);
+      return encontrado ? encontrado.id : null;
+    } catch {
+      return null;
+    }
   }
 
 
@@ -173,6 +288,11 @@ export class ReplicationService {
             for (const d of existentesDocs) {
               if (d.backendId != null) porBackendId.set(d.backendId, d.toJSON() as PedidoDocType);
             }
+            const clientesDocs = await this.rxDb.clientes.find().exec();
+            const clienteLocalIdPorBackendId = new Map<number, string>();
+            for (const c of clientesDocs) {
+              if (c.backendId != null) clienteLocalIdPorBackendId.set(c.backendId, c.id);
+            }
 
             const documents = respuesta.map((p: any) => {
               let uuidOffline: string = p.uuidOffline;
@@ -180,11 +300,14 @@ export class ReplicationService {
                 uuidOffline = porBackendId.get(p.id)?.uuidOffline ?? crypto.randomUUID();
               }
 
+              const clienteLocalId =
+                clienteLocalIdPorBackendId.get(p.clienteId) ?? String(p.clienteId);
+
               return {
                 uuidOffline,
                 backendId: p.id,
                 creadorId: p.creadorId ?? undefined,
-                clienteId: String(p.clienteId),
+                clienteId: clienteLocalId,
                 direccionEntrega: p.direccionEntrega ?? '',
                 estado: p.estado,
                 urlFotoEvidencia: p.urlFotoEvidencia ?? '',
@@ -228,17 +351,37 @@ export class ReplicationService {
 
           if (nuevos.length === 0) return [];
 
-          const pedidosRequest: PedidoRequest[] = nuevos.map((p) => ({
-            uuidOffline: p.uuidOffline,
-            clienteId: Number(p.clienteId),
-            creadorId: p.creadorId ?? undefined,
-            direccionEntrega: p.direccionEntrega ?? '',
-            urlFotoEvidencia: p.urlFotoEvidencia || undefined,
-            detalles: p.detalles.map((d) => ({
-              garrafaId: Number(d.garrafaId),
-              cantidad: d.cantidad,
-            })),
-          }));
+          const pedidosRequest: PedidoRequest[] = [];
+          for (const p of nuevos) {
+            let clienteBackendId: number | null;
+            try {
+              clienteBackendId = await this.asegurarClienteSincronizado(p.clienteId);
+            } catch (error: any) {
+              if (error?.status === 0 || !navigator.onLine) {
+                throw error;
+              }
+              console.error('[ReplicationService] No se pudo resolver el cliente del pedido', p.uuidOffline, error);
+              clienteBackendId = null;
+            }
+
+            if (clienteBackendId == null) {
+              continue;
+            }
+
+            pedidosRequest.push({
+              uuidOffline: p.uuidOffline,
+              clienteId: clienteBackendId,
+              creadorId: p.creadorId ?? undefined,
+              direccionEntrega: p.direccionEntrega ?? '',
+              urlFotoEvidencia: p.urlFotoEvidencia || undefined,
+              detalles: p.detalles.map((d) => ({
+                garrafaId: Number(d.garrafaId),
+                cantidad: d.cantidad,
+              })),
+            });
+          }
+
+          if (pedidosRequest.length === 0) return [];
 
           const request: SincronizacionRequest = { pedidos: pedidosRequest };
           let response: SincronizacionResponse;

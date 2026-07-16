@@ -1,6 +1,10 @@
 
 export interface Cliente {
   id: string;
+  /** Id numérico del backend. Null hasta que el cliente se sincroniza. */
+  backendId?: number | null;
+  /** false mientras está pendiente de sincronizar con el servidor. */
+  sincronizado?: boolean;
   nombre: string;
   apellido: string;
   dni: string;
@@ -15,6 +19,7 @@ export interface Cliente {
 
 export interface ClienteResponse {
   id: number;
+  uuidOffline?: string | null;
   nombre: string;
   telefono: string | null;
   direccion: string;
@@ -28,6 +33,7 @@ export interface ClienteResponse {
 }
 
 export interface ClienteRequest {
+  uuidOffline?: string;
   nombre: string;
   telefono?: string;
   direccion: string;

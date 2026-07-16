@@ -13,6 +13,9 @@ import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { clienteSchema, ClienteDocType } from '../schemas/cliente.schema';
 import { garrafaSchema, GarrafaDocType } from '../schemas/garrafa.schema';
 import { pedidoSchema, PedidoDocType } from '../schemas/pedido.schema';
+import { rutaSchema, RutaDocType } from '../schemas/ruta.schema';
+import { eventoParadaSchema, EventoParadaDocType } from '../schemas/evento-parada.schema';
+import { eventoRutaSchema, EventoRutaDocType } from '../schemas/evento-ruta.schema';
 import { environment } from '../../environments/environment';
 
 
@@ -36,6 +39,9 @@ export type AppCollections = {
   clientes: RxCollection<ClienteDocType>;
   garrafas: RxCollection<GarrafaDocType>;
   pedidos: RxCollection<PedidoDocType>;
+  rutas: RxCollection<RutaDocType>;
+  eventosParada: RxCollection<EventoParadaDocType>;
+  eventosRuta: RxCollection<EventoRutaDocType>;
 };
 
 export type AppDatabase = RxDatabase<AppCollections>;
@@ -61,6 +67,18 @@ export class RxDatabaseService {
 
   get pedidos(): RxCollection<PedidoDocType> {
     return this._db.pedidos;
+  }
+
+  get rutas(): RxCollection<RutaDocType> {
+    return this._db.rutas;
+  }
+
+  get eventosParada(): RxCollection<EventoParadaDocType> {
+    return this._db.eventosParada;
+  }
+
+  get eventosRuta(): RxCollection<EventoRutaDocType> {
+    return this._db.eventosRuta;
   }
 
   /**
@@ -98,7 +116,16 @@ export class RxDatabaseService {
     });
 
     await this._db.addCollections({
-      clientes: { schema: clienteSchema },
+      clientes: {
+        schema: clienteSchema,
+        migrationStrategies: {
+          1: (doc) => ({
+            ...doc,
+            backendId: /^\d+$/.test(doc.id) ? Number(doc.id) : null,
+            sincronizado: true,
+          }),
+        },
+      },
       garrafas: { schema: garrafaSchema },
       pedidos: {
         schema: pedidoSchema,
@@ -106,6 +133,9 @@ export class RxDatabaseService {
           1: (doc) => doc,
         },
       },
+      rutas: { schema: rutaSchema },
+      eventosParada: { schema: eventoParadaSchema },
+      eventosRuta: { schema: eventoRutaSchema },
     });
 
     console.log('[RxDatabaseService] Base de datos inicializada con colecciones:', Object.keys(this._db.collections));

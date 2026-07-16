@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
 import { ReplicationService } from '../../services/replication.service';
+import { RepartoOfflineService } from '../../services/reparto-offline.service';
 import { ToastService } from '../../services/toast.service';
 
 @Component({
@@ -15,6 +16,7 @@ export class Login {
   private auth = inject(AuthService);
   private router = inject(Router);
   private replication = inject(ReplicationService);
+  private repartoOffline = inject(RepartoOfflineService);
   private toast = inject(ToastService);
 
   protected email = signal('');
@@ -52,7 +54,12 @@ export class Login {
     try {
       const usuario = await this.auth.login({ email, password });
       if (this.auth.esPreventista()) {
-        await this.replication.iniciar();}
+        await this.replication.iniciar();
+      }
+      if (this.auth.esRepartidor()) {
+        const uid = this.auth.userId();
+        if (uid != null) await this.repartoOffline.iniciar(uid);
+      }
       this.toast.mostrar(`¡Bienvenido, ${usuario.nombreCompleto}!`, 'exito');
       await this.router.navigateByUrl(this.auth.rutaInicial());
     } catch (e) {

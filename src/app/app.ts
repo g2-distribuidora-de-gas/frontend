@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router
 import { filter } from 'rxjs';
 import { ToastService } from './services/toast.service';
 import { ReplicationService } from './services/replication.service';
+import { RepartoOfflineService } from './services/reparto-offline.service';
 import { AuthService } from './services/auth.service';
 
 @Component({
@@ -15,6 +16,7 @@ export class App {
   protected readonly toast = inject(ToastService);
   protected readonly auth = inject(AuthService);
   private readonly replication = inject(ReplicationService);
+  private readonly repartoOffline = inject(RepartoOfflineService);
   private readonly router = inject(Router);
 
   protected readonly enLogin = signal(this.router.url.startsWith('/login'));
@@ -29,6 +31,9 @@ export class App {
       if (this.auth.esPreventista()) {
         this.replication.resincronizar();
       }
+      if (this.auth.esRepartidor()) {
+        void this.repartoOffline.flush();
+      }
     });
     window.addEventListener('offline', () => this.online.set(false));
   }
@@ -36,6 +41,7 @@ export class App {
   protected async cerrarSesion(): Promise<void> {
 
     await this.replication.cancelar();
+    await this.repartoOffline.cancelar();
     this.auth.logout();
     await this.router.navigate(['/login']);
   }

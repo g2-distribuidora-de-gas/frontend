@@ -264,10 +264,15 @@ export class TomaPedido {
       }
       const foto = this.fotoCliente();
       if (foto) {
-        try {
-          await this.apiCliente.subirFoto(Number(id), foto, 'Fachada');
-        } catch {
-          this.toast.error('Cliente guardado, pero no se pudo subir la foto.');
+        const backendId = await this.catalogo.backendIdDe(id);
+        if (backendId != null) {
+          try {
+            await this.apiCliente.subirFoto(backendId, foto, 'Fachada');
+          } catch {
+            this.toast.error('Cliente guardado, pero no se pudo subir la foto.');
+          }
+        } else {
+          this.toast.mostrar('Cliente guardado sin conexión. La foto se podrá cargar cuando se sincronice.', 'info');
         }
       }
       this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
