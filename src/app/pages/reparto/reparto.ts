@@ -1,13 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
-import { ApiRutaService } from '../../services/api-ruta.service';
-import { ApiPedidoService } from '../../services/api-pedido.service';
+import { RepartoOfflineService } from '../../services/reparto-offline.service';
 import { ToastService } from '../../services/toast.service';
-import {EstadoEntrega, ESTADO_ENTREGA_LABELS, ESTADO_RUTA_LABELS, RutaPedidoResponse,RutaResponse} from '../../models/ruta.model';
-import { EstadoPedido, ESTADO_LABELS, PedidoResponse } from '../../models/pedido.model';
+import {EstadoEntrega, ESTADO_ENTREGA_LABELS, ESTADO_RUTA_LABELS, RutaPedidoOffline} from '../../models/ruta.model';
+import { ESTADO_LABELS } from '../../models/pedido.model';
 import { nombreGarrafa } from '../../models/garrafa.model';
 import { MapaRuta } from '../../components/mapa-ruta/mapa-ruta';
 import { MapaVista } from '../../components/mapa-vista/mapa-vista';
@@ -19,27 +17,28 @@ import { MapaVista } from '../../components/mapa-vista/mapa-vista';
 })
 export class Reparto {
   private auth = inject(AuthService);
-  private apiRuta = inject(ApiRutaService);
-  private apiPedido = inject(ApiPedidoService);
+  private reparto = inject(RepartoOfflineService);
   private toast = inject(ToastService);
 
-  protected ruta = signal<RutaResponse | null>(null);
+  protected ruta = this.reparto.ruta;
+  protected pendientes = this.reparto.pendientes;
+  protected sincronizando = this.reparto.sincronizando;
+
   protected cargando = signal(true);
-  protected sinRuta = signal(false);
   protected procesando = signal(false);
   protected seleccionadaId = signal<number | null>(null);
-  protected paradaAFallar = signal<RutaPedidoResponse | null>(null);
+  protected paradaAFallar = signal<RutaPedidoOffline | null>(null);
   protected motivoFallo = signal('');
 
-  // Modal de detalle de la parada / pedido
-  protected paradaModal = signal<RutaPedidoResponse | null>(null);
-  protected pedidoModal = signal<PedidoResponse | null>(null);
-  protected cargandoPedido = signal(false);
+
+  protected paradaModal = signal<RutaPedidoOffline | null>(null);
 
   protected readonly ESTADO_ENTREGA_LABELS = ESTADO_ENTREGA_LABELS;
   protected readonly ESTADO_RUTA_LABELS = ESTADO_RUTA_LABELS;
   protected readonly ESTADO_PEDIDO_LABELS = ESTADO_LABELS;
   protected readonly nombreGarrafa = nombreGarrafa;
+
+  protected sinRuta = computed(() => !this.cargando() && this.ruta() == null);
 
   protected paradas = computed(() =>
     [...(this.ruta()?.paradas ?? [])].sort((a, b) => a.orden - b.orden),
@@ -62,6 +61,12 @@ export class Reparto {
   protected puedeFinalizar = computed(() => this.estadoRuta() === 'EN_CURSO');
   protected enCurso = computed(() => this.estadoRuta() === 'EN_CURSO');
 
+  protected paradaModalActual = computed(() => {
+    const m = this.paradaModal();
+    if (!m) return null;
+    return this.paradas().find((p) => p.id === m.id) ?? m;
+  });
+
   constructor() {
     void this.cargar();
   }
@@ -69,55 +74,39 @@ export class Reparto {
   protected async cargar(): Promise<void> {
     const uid = this.auth.userId();
     if (uid == null) {
-      this.sinRuta.set(true);
       this.cargando.set(false);
       return;
     }
     this.cargando.set(true);
-    this.sinRuta.set(false);
     try {
-      const ruta = await this.apiRuta.obtenerMiRutaActiva(uid);
-      this.ruta.set(ruta);
-      const primera = [...ruta.paradas].sort((a, b) => a.orden - b.orden)[0];
-      this.seleccionadaId.set(primera ? primera.id : null);
-    } catch (e) {
-      if (e instanceof HttpErrorResponse && (e.status === 404 || e.status === 400)) {
-        this.ruta.set(null);
-        this.sinRuta.set(true);
-      } else {
-        this.toast.error(this.msgError(e, 'No se pudo cargar tu ruta.'));
-        this.sinRuta.set(true);
-      }
+      await this.reparto.iniciar(uid);
+      const primera = this.paradas()[0];
+      if (primera && this.seleccionadaId() == null) this.seleccionadaId.set(primera.id);
     } finally {
       this.cargando.set(false);
     }
   }
 
-  protected seleccionar(p: RutaPedidoResponse): void {
+  protected async sincronizar(): Promise<void> {
+    await this.reparto.sincronizarAhora();
+  }
+
+  protected seleccionar(p: RutaPedidoOffline): void {
     this.seleccionadaId.set(p.id);
   }
 
-  protected async abrirDetalle(p: RutaPedidoResponse): Promise<void> {
+  protected abrirDetalle(p: RutaPedidoOffline): void {
     this.seleccionadaId.set(p.id);
     this.paradaModal.set(p);
-    this.pedidoModal.set(null);
-    this.cargandoPedido.set(true);
-    try {
-      const pedido = await this.apiPedido.obtenerPorId(p.pedidoId);
-      if (this.paradaModal()?.id === p.id) {
-        this.pedidoModal.set(pedido);
-      }
-    } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudieron cargar los detalles del pedido.'));
-    } finally {
-      this.cargandoPedido.set(false);
-    }
   }
 
   protected cerrarDetalle(): void {
     this.paradaModal.set(null);
-    this.pedidoModal.set(null);
-    this.cargandoPedido.set(false);
+  }
+
+  protected totalPedido(p: RutaPedidoOffline): number {
+    if (p.totalPedido != null) return p.totalPedido;
+    return (p.detalles ?? []).reduce((s, d) => s + (d.subtotal ?? 0), 0);
   }
 
 
@@ -145,30 +134,18 @@ export class Reparto {
     if (!ruta || this.procesando()) return;
     this.procesando.set(true);
     try {
-      const actualizada = await this.apiRuta.cambiarEstadoRuta(ruta.id, estado);
+      await this.reparto.cambiarEstadoRuta(ruta.id, estado);
       this.toast.exito(mensajeOk);
-      if (estado === 'EN_CURSO') {
-        this.ruta.set(actualizada);
-      } else {
-        this.ruta.set(null);
-        this.sinRuta.set(true);
-      }
-    } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudo cambiar el estado de la ruta.'));
+    } catch {
+      this.toast.error('No se pudo registrar el cambio de estado de la ruta.');
     } finally {
       this.procesando.set(false);
     }
   }
 
-  private estadoPedidoDe(estado: EstadoEntrega): EstadoPedido {
-    switch (estado) {
-      case 'ENTREGADO': return 'ENTREGADO';
-      case 'FALLIDO': return 'REPROGRAMADO';
-      default: return 'PENDIENTE';
-    }
-  }
+  // ─── Estado de las paradas ────────────────────────────────────────
 
-  protected pedirMotivoFallo(p: RutaPedidoResponse): void {
+  protected pedirMotivoFallo(p: RutaPedidoOffline): void {
     if (this.procesando()) return;
     if (!this.enCurso()) {
       this.toast.error('Iniciá el reparto antes de actualizar las paradas.');
@@ -196,7 +173,7 @@ export class Reparto {
   }
 
   protected async marcarParada(
-    p: RutaPedidoResponse,
+    p: RutaPedidoOffline,
     estado: EstadoEntrega,
     motivoFallo?: string,
   ): Promise<void> {
@@ -207,57 +184,25 @@ export class Reparto {
     }
     this.procesando.set(true);
     try {
-      await this.apiRuta.actualizarEstadoParada(p.id, estado, motivoFallo);
-      try {
-        await this.apiPedido.cambiarEstado(p.pedidoId, this.estadoPedidoDe(estado));
-      } catch {
-        this.toast.mostrar('Parada actualizada; el estado del pedido se sincronizará luego.', 'info');
-      }
-      this.actualizarParadaLocal(p.id, estado, motivoFallo);
+      await this.reparto.marcarParada(p.id, estado, motivoFallo);
       this.toast.exito(`Parada #${p.orden} → ${ESTADO_ENTREGA_LABELS[estado]}.`);
-    } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudo actualizar la parada.'));
+    } catch {
+      this.toast.error('No se pudo registrar el cambio de la parada.');
     } finally {
       this.procesando.set(false);
     }
   }
 
-  protected async marcarEnProceso(p: RutaPedidoResponse): Promise<void> {
-    if (this.procesando()) return;
-    if (!this.enCurso()) {
-      this.toast.error('Iniciá el reparto antes de actualizar los pedidos.');
-      return;
-    }
-    this.procesando.set(true);
-    try {
-      await this.apiPedido.cambiarEstado(p.pedidoId, 'EN_PROCESO');
-      this.toast.exito(`Pedido #${p.pedidoId} en proceso.`);
-    } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudo actualizar el pedido.'));
-    } finally {
-      this.procesando.set(false);
-    }
-  }
-
-  private actualizarParadaLocal(rutaPedidoId: number, estado: EstadoEntrega, motivoFallo?: string): void {
-    this.ruta.update((r) => {
-      if (!r) return r;
-      return {
-        ...r,
-        paradas: r.paradas.map((p) =>
-          p.id === rutaPedidoId
-            ? { ...p, estadoEntrega: estado, motivoFallo: estado === 'FALLIDO' ? (motivoFallo ?? p.motivoFallo) : p.motivoFallo }
-            : p,
-        ),
-      };
-    });
-  }
+  // ─── Helpers de presentación ──────────────────────────────────────
 
   protected claseEntrega(estado: EstadoEntrega): string {
     switch (estado) {
-      case 'ENTREGADO': return 'bg-green-50 text-green-700 border-green-200';
-      case 'FALLIDO': return 'bg-red-50 text-red-600 border-red-200';
-      default: return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'ENTREGADO':
+        return 'bg-green-50 text-green-700 border-green-200';
+      case 'FALLIDO':
+        return 'bg-red-50 text-red-600 border-red-200';
+      default:
+        return 'bg-amber-50 text-amber-700 border-amber-200';
     }
   }
 
@@ -269,17 +214,7 @@ export class Reparto {
     return s != null ? Math.round(s / 60) : 0;
   }
 
-  protected mapsUrl(p: RutaPedidoResponse): string {
+  protected mapsUrl(p: RutaPedidoOffline): string {
     return `https://www.google.com/maps/search/?api=1&query=${p.cliente?.latitud},${p.cliente?.longitud}`;
-  }
-
-  private msgError(e: unknown, fallback: string): string {
-    if (e instanceof HttpErrorResponse) {
-      const msg = e.error?.mensaje;
-      if (typeof msg === 'string') return msg;
-      if (e.status === 0) return 'No se pudo conectar con el servidor.';
-    }
-    if (e instanceof Error && e.message) return e.message;
-    return fallback;
   }
 }

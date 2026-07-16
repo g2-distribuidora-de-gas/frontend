@@ -9,6 +9,7 @@ import { apiResponseInterceptor } from './interceptors/api-response.interceptor'
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { RxDatabaseService } from './services/rx-database.service';
 import { ReplicationService } from './services/replication.service';
+import { RepartoOfflineService } from './services/reparto-offline.service';
 import { AuthService } from './services/auth.service';
 
 export const appConfig: ApplicationConfig = {
@@ -27,11 +28,16 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(async () => {
       const dbService = inject(RxDatabaseService);
       const replication = inject(ReplicationService);
+      const repartoOffline = inject(RepartoOfflineService);
       const auth = inject(AuthService);
 
       await dbService.init();
       if (auth.autenticado() && auth.esPreventista()) {
         await replication.iniciar();
+      }
+      if (auth.autenticado() && auth.esRepartidor()) {
+        const uid = auth.userId();
+        if (uid != null) await repartoOffline.iniciar(uid);
       }
     }),
   ],
