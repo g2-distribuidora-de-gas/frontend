@@ -8,7 +8,8 @@ import { PedidoDocType } from '../schemas/pedido.schema';
 import { ClienteDocType } from '../schemas/cliente.schema';
 import { GarrafaDocType } from '../schemas/garrafa.schema';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, Subscription, interval } from 'rxjs';
+import { map } from 'rxjs/operators';
 import {
   PedidoRequest,
   SincronizacionRequest,
@@ -339,6 +340,7 @@ export class ReplicationService {
             throw error;
           }
         },
+        stream$: interval(10_000).pipe(map(() => 'RESYNC' as const)),
       },
 
       push: {

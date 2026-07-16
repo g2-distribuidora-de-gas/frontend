@@ -28,7 +28,7 @@ export class App {
 
     window.addEventListener('online', () => {
       this.online.set(true);
-      if (this.auth.esPreventista()) {
+      if ((this.auth.esPreventista() || this.auth.esAdministrativo())) {
         this.replication.resincronizar();
       }
       if (this.auth.esRepartidor()) {

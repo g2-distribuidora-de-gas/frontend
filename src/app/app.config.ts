@@ -32,7 +32,7 @@ export const appConfig: ApplicationConfig = {
       const auth = inject(AuthService);
 
       await dbService.init();
-      if (auth.autenticado() && auth.esPreventista()) {
+      if (auth.autenticado() && (auth.esPreventista() || auth.esAdministrativo())) {
         await replication.iniciar();
       }
       if (auth.autenticado() && auth.esRepartidor()) {

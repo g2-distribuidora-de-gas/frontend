@@ -53,7 +53,7 @@ export class Login {
 
     try {
       const usuario = await this.auth.login({ email, password });
-      if (this.auth.esPreventista()) {
+      if ((this.auth.esPreventista() || this.auth.esAdministrativo())) {
         await this.replication.iniciar();
       }
       if (this.auth.esRepartidor()) {
