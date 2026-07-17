@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import * as L from 'leaflet';
-import { GeoService, GeoSugerencia, REGION_DEFAULT } from '../../services/geo.service';
+import {GeoService, GeoSugerencia, REGION_DEFAULT, FORMOSA_BOUNDS, dentroDeFormosa} from '../../services/geo.service';
 import { ToastService } from '../../services/toast.service';
 
 export interface UbicacionSeleccionada {
@@ -85,6 +85,7 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
 
   private static readonly INTERVALO_MARCA_MS = 5000;
   private ultimaMarcaMs = 0;
+  private ultimaValida?: { lat: number; lng: number };
 
   private readonly mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
 
@@ -111,10 +112,17 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     const lat = this.latInicial() ?? REGION_DEFAULT.lat;
     const lng = this.lngInicial() ?? REGION_DEFAULT.lng;
+    const limites = L.latLngBounds(
+      [FORMOSA_BOUNDS.sur, FORMOSA_BOUNDS.oeste],
+      [FORMOSA_BOUNDS.norte, FORMOSA_BOUNDS.este],
+    );
 
     this.map = L.map(this.mapEl().nativeElement, {
       center: [lat, lng],
       zoom: REGION_DEFAULT.zoom,
+      maxBounds: limites,
+      maxBoundsViscosity: 1.0,
+      minZoom: 12,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -127,6 +135,10 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
     }
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
+      if (!dentroDeFormosa(e.latlng.lat, e.latlng.lng)) {
+        this.toast.mostrar('Solo se pueden marcar ubicaciones dentro de la ciudad de Formosa.', 'info');
+        return;
+      }
       if (this.marcadoDemasiadoRapido()) return;
       this.fijarMarcador(e.latlng.lat, e.latlng.lng, true);
     });
@@ -176,6 +188,12 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
       }).addTo(this.map);
       this.marker.on('dragend', () => {
         const p = this.marker!.getLatLng();
+        if (!dentroDeFormosa(p.lat, p.lng)) {
+          this.toast.mostrar('El pin debe quedar dentro de la ciudad de Formosa.', 'info');
+          const prev = this.ultimaValida;
+          if (prev) this.marker!.setLatLng([prev.lat, prev.lng]);
+          return;
+        }
         this.fijarMarcador(p.lat, p.lng, true);
       });
     } else {
@@ -183,6 +201,7 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
     }
 
     this.tieneUbicacion.set(true);
+    this.ultimaValida = { lat, lng };
     this.coordTexto.set(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     this.ubicacionChange.emit({ lat, lng, direccion, placeId });
 

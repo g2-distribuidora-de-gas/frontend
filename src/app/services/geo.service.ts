@@ -5,6 +5,21 @@ export const REGION_DEFAULT = {
   lng: -58.1850831,
   zoom: 13,
 } as const;
+export const FORMOSA_BOUNDS = {
+  sur: -26.27, 
+  norte: -26.08, 
+  oeste: -58.32, 
+  este: -58.12, 
+} as const;
+
+export function dentroDeFormosa(lat: number, lng: number): boolean {
+  return (
+    lat >= FORMOSA_BOUNDS.sur &&
+    lat <= FORMOSA_BOUNDS.norte &&
+    lng >= FORMOSA_BOUNDS.oeste &&
+    lng <= FORMOSA_BOUNDS.este
+  );
+}
 
 export interface GeoSugerencia {
   displayName: string;
@@ -18,7 +33,8 @@ export interface GeoSugerencia {
 export class GeoService {
   private readonly base = 'https://nominatim.openstreetmap.org';
 
-  private readonly viewbox = '-58.55,-25.90,-57.85,-26.50'; 
+  private readonly viewbox =
+    `${FORMOSA_BOUNDS.oeste},${FORMOSA_BOUNDS.norte},${FORMOSA_BOUNDS.este},${FORMOSA_BOUNDS.sur}`;
 
   async buscar(query: string): Promise<GeoSugerencia[]> {
     const q = query.trim();
@@ -29,7 +45,7 @@ export class GeoService {
       `&q=${encodeURIComponent(q)}` +
       `&countrycodes=ar` +
       `&viewbox=${this.viewbox}` +
-      `&bounded=0` +
+      `&bounded=1` +
       `&addressdetails=1` +
       `&limit=6` +
       `&accept-language=es`;
@@ -38,12 +54,14 @@ export class GeoService {
       const res = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!res.ok) return [];
       const data: any[] = await res.json();
-      return data.map((d) => ({
-        displayName: d.display_name as string,
-        lat: Number(d.lat),
-        lng: Number(d.lon),
-        placeId: d.place_id != null ? String(d.place_id) : null,
-      }));
+      return data
+        .map((d) => ({
+          displayName: d.display_name as string,
+          lat: Number(d.lat),
+          lng: Number(d.lon),
+          placeId: d.place_id != null ? String(d.place_id) : null,
+        }))
+        .filter((s) => dentroDeFormosa(s.lat, s.lng));
     } catch {
       return [];
     }
