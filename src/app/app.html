@@ -17,24 +17,28 @@
               {{ online() ? 'En línea' : 'Sin conexión' }}
             </span>
 
-            <nav class="flex gap-1 rounded-full bg-brand-600/60 p-1 text-sm font-medium text-brand-50">
-              @if (auth.esPreventista()) {
-                <a routerLink="/toma-pedido"
-                  routerLinkActive="bg-white text-brand-700 shadow-sm"
-                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-                >Nuevo pedido</a>
-                <a routerLink="/pedidos"
-                  routerLinkActive="bg-white text-brand-700 shadow-sm"
-                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-                >Pedidos</a>
-              }
-              @if (auth.esRepartidor()) {
-                <a routerLink="/reparto"
-                  routerLinkActive="bg-white text-brand-700 shadow-sm"
-                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
-                >Mi reparto</a>
-              }
-              @if (auth.esAdministrativo()) {
+            @if (auth.esPreventista() || auth.esRepartidor()) {
+              <nav class="flex gap-1 rounded-full bg-brand-600/60 p-1 text-sm font-medium text-brand-50">
+                @if (auth.esPreventista()) {
+                  <a routerLink="/toma-pedido"
+                    routerLinkActive="bg-white text-brand-700 shadow-sm"
+                    class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                  >Nuevo pedido</a>
+                  <a routerLink="/pedidos"
+                    routerLinkActive="bg-white text-brand-700 shadow-sm"
+                    class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                  >Pedidos</a>
+                }
+                @if (auth.esRepartidor()) {
+                  <a routerLink="/reparto"
+                    routerLinkActive="bg-white text-brand-700 shadow-sm"
+                    class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                  >Mi reparto</a>
+                }
+              </nav>
+            }
+            @if (auth.esAdministrativo()) {
+              <nav class="hidden gap-1 rounded-full bg-brand-600/60 p-1 text-sm font-medium text-brand-50 lg:flex">
                 <a routerLink="/pedidos"
                   routerLinkActive="bg-white text-brand-700 shadow-sm"
                   class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
@@ -55,8 +59,25 @@
                   routerLinkActive="bg-white text-brand-700 shadow-sm"
                   class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
                 >Rutas</a>
-              }
-            </nav>
+              </nav>
+              <button
+                type="button"
+                (click)="toggleMenu()"
+                [attr.aria-expanded]="menuAbierto()"
+                aria-label="Abrir menú de navegación"
+                class="grid h-9 w-9 place-items-center rounded-full bg-brand-600/60 text-white transition-colors hover:bg-brand-600 lg:hidden"
+              >
+                @if (menuAbierto()) {
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-5 w-5">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-5 w-5">
+                    <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+                  </svg>
+                }
+              </button>
+            }
 
             @if (auth.usuario(); as u) {
               <div class="flex items-center gap-2">
@@ -70,6 +91,31 @@
             }
           </div>
         </div>
+
+        @if (auth.esAdministrativo() && menuAbierto()) {
+          <nav class="flex flex-col gap-1 pb-3 text-sm font-medium lg:hidden">
+            <a routerLink="/pedidos" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Pedidos</a>
+            <a routerLink="/admin/usuarios" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Usuarios</a>
+            <a routerLink="/admin/clientes" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Clientes</a>
+            <a routerLink="/admin/garrafas" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Garrafas</a>
+            <a routerLink="/admin/rutas" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Rutas</a>
+          </nav>
+        }
       </div>
     </header>
 

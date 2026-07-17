@@ -20,11 +20,21 @@ export class App {
   private readonly router = inject(Router);
 
   protected readonly enLogin = signal(this.router.url.startsWith('/login'));
+  protected readonly menuAbierto = signal(false);
+  protected toggleMenu(): void {
+    this.menuAbierto.update((v) => !v);
+  }
+  protected cerrarMenu(): void {
+    this.menuAbierto.set(false);
+  }
 
   constructor() {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.enLogin.set(e.urlAfterRedirects.startsWith('/login')));
+      .subscribe((e) => {
+        this.enLogin.set(e.urlAfterRedirects.startsWith('/login'));
+        this.menuAbierto.set(false);
+      });
 
     window.addEventListener('online', () => {
       this.online.set(true);
