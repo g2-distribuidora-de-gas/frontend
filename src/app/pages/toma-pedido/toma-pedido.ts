@@ -204,8 +204,8 @@ export class TomaPedido {
 
   private validarNuevoCliente(): boolean {
     const n = this.nuevoCliente();
-    if (!n.nombre.trim() || !n.apellido.trim() || !n.telefono.trim() || !n.direccion.trim()) {
-      this.toast.error('Completá todos los campos del cliente.');
+    if (!n.nombre.trim() || !n.apellido.trim() || !n.telefono.trim()) {
+      this.toast.error('Completá nombre, apellido y teléfono del cliente.');
       return false;
     }
     if (/\d/.test(n.nombre) || /\d/.test(n.apellido)) {
@@ -246,7 +246,7 @@ export class TomaPedido {
       nombre: n.nombre.trim(),
       apellido: n.apellido.trim(),
       telefono: n.telefono.trim(),
-      direccion: n.direccion.trim(),
+      direccion: n.direccion.trim() || 'sin direccion',
       latitud: u ? u.lat : null,
       longitud: u ? u.lng : null,
       placeId: u ? (u.placeId ?? null) : null,
