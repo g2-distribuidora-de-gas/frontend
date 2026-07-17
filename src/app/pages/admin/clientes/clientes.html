@@ -61,7 +61,7 @@
 </div>
 @if (editando(); as c) {
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="cerrarEdicion()">
-    <div class="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" (click)="$event.stopPropagation()">
+    <div class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" (click)="$event.stopPropagation()">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-lg font-bold text-brand-900">Editar cliente</h2>
         <button (click)="cerrarEdicion()" class="text-sm font-medium text-brand-700/60 hover:text-brand-700">Cancelar</button>
@@ -93,12 +93,25 @@
           />
         </div>
         <div class="sm:col-span-2">
-          <label class="mb-1 block text-xs font-semibold text-brand-700">Dirección *</label>
+          <label class="mb-1 block text-xs font-semibold text-brand-700">Dirección</label>
           <input
             type="text" [ngModel]="form().direccion" (ngModelChange)="campo('direccion', $event)"
             class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
           />
-          <p class="mt-1 text-xs text-brand-700/50">Si cambia la dirección, las coordenadas se recalculan automáticamente.</p>
+          <p class="mt-1 text-xs text-brand-700/50">Opcional. Si se deja vacía se guardará como “sin direccion”. Si cambia, las coordenadas se recalculan automáticamente.</p>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="mb-1 block text-xs font-semibold text-brand-700">Ubicación en el mapa</label>
+          <app-mapa-picker
+            [latInicial]="ubicInicialLat()"
+            [lngInicial]="ubicInicialLng()"
+            (ubicacionChange)="onUbicacion($event)"
+          />
+          @if (ubicacion(); as u) {
+          } @else {
+            <p class="mt-1 text-xs text-brand-700/50">Marcá la ubicación en el mapa para fijar o corregir las coordenadas (opcional).</p>
+          }
         </div>
       </div>
 

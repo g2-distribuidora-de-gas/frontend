@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Cliente } from '../../../models/cliente.model';
 import { CatalogoService } from '../../../services/catalogo.service';
 import { ToastService } from '../../../services/toast.service';
+import { MapaPicker, UbicacionSeleccionada } from '../../../components/mapa-picker/mapa-picker';
 import { toSignal } from '@angular/core/rxjs-interop';
 
 interface FormCliente {
@@ -21,7 +22,7 @@ const FORM_VACIO: FormCliente = {
 
 @Component({
   selector: 'app-admin-clientes',
-  imports: [FormsModule],
+  imports: [FormsModule, MapaPicker],
   templateUrl: './clientes.html',
 })
 export class ClientesAdmin {
@@ -39,6 +40,9 @@ export class ClientesAdmin {
   protected form = signal<FormCliente>({ ...FORM_VACIO });
   protected guardando = signal(false);
   protected bajaPendiente = signal<Cliente | null>(null);
+  protected ubicacion = signal<UbicacionSeleccionada | null>(null);
+  protected ubicInicialLat = signal<number | null>(null);
+  protected ubicInicialLng = signal<number | null>(null);
 
   private filtrar(lista: Cliente[]): Cliente[] {
     const q = this.busqueda().toLowerCase().trim();
@@ -60,11 +64,23 @@ export class ClientesAdmin {
       telefono: c.telefono ?? '',
       direccion: c.direccion,
     });
+    const lat = c.latitud ?? null;
+    const lng = c.longitud ?? null;
+    this.ubicInicialLat.set(lat);
+    this.ubicInicialLng.set(lng);
+    this.ubicacion.set(lat != null && lng != null ? { lat, lng, placeId: c.placeId ?? null } : null);
   }
 
   protected cerrarEdicion(): void {
     this.editando.set(null);
     this.form.set({ ...FORM_VACIO });
+    this.ubicacion.set(null);
+    this.ubicInicialLat.set(null);
+    this.ubicInicialLng.set(null);
+  }
+  protected onUbicacion(u: UbicacionSeleccionada): void {
+    this.ubicacion.set(u);
+    if (u.direccion) this.form.update((f) => ({ ...f, direccion: u.direccion! }));
   }
 
   protected campo<K extends keyof FormCliente>(campo: K, valor: string): void {
@@ -101,6 +117,7 @@ export class ClientesAdmin {
       return;
     }
     const f = this.form();
+    const u = this.ubicacion();
     this.guardando.set(true);
     try {
       await this.catalogo.editarCliente(c.id, {
@@ -108,9 +125,9 @@ export class ClientesAdmin {
         apellido: f.apellido.trim(),
         telefono: f.telefono.trim(),
         direccion: f.direccion.trim() || 'sin direccion',
-        latitud: c.latitud ?? null,
-        longitud: c.longitud ?? null,
-        placeId: c.placeId ?? null,
+        latitud: u ? u.lat : c.latitud ?? null,
+        longitud: u ? u.lng : c.longitud ?? null,
+        placeId: u ? u.placeId ?? null : c.placeId ?? null,
       });
       this.toast.exito('Cliente actualizado.');
       this.cerrarEdicion();
