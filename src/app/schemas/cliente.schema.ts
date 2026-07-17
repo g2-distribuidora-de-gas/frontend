@@ -7,7 +7,7 @@ import {
 
 export const clienteSchemaLiteral = {
   title: 'cliente schema',
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -16,7 +16,6 @@ export const clienteSchemaLiteral = {
     sincronizado: { type: 'boolean' },
     nombre: { type: 'string' },
     apellido: { type: 'string' },
-    dni: { type: 'string', maxLength: 20 },
     telefono: { type: 'string' },
     direccion: { type: 'string' },
     activo: { type: 'boolean' },

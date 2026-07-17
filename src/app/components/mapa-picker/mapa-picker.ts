@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import * as L from 'leaflet';
 import { GeoService, GeoSugerencia, REGION_DEFAULT } from '../../services/geo.service';
+import { ToastService } from '../../services/toast.service';
 
 export interface UbicacionSeleccionada {
   lat: number;
@@ -75,11 +76,15 @@ export interface UbicacionSeleccionada {
 })
 export class MapaPicker implements AfterViewInit, OnDestroy {
   private geo = inject(GeoService);
+  private toast = inject(ToastService);
 
   readonly latInicial = input<number | null>(null);
   readonly lngInicial = input<number | null>(null);
 
   readonly ubicacionChange = output<UbicacionSeleccionada>();
+
+  private static readonly INTERVALO_MARCA_MS = 5000;
+  private ultimaMarcaMs = 0;
 
   private readonly mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
 
@@ -122,6 +127,7 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
     }
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
+      if (this.marcadoDemasiadoRapido()) return;
       this.fijarMarcador(e.latlng.lat, e.latlng.lng, true);
     });
 
@@ -164,7 +170,10 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
     if (!this.map) return;
 
     if (!this.marker) {
-      this.marker = L.marker([lat, lng], { draggable: true, icon: this.icono }).addTo(this.map);
+      this.marker = L.marker([lat, lng], {
+        draggable: true,
+        icon: this.icono,
+      }).addTo(this.map);
       this.marker.on('dragend', () => {
         const p = this.marker!.getLatLng();
         this.fijarMarcador(p.lat, p.lng, true);
@@ -182,5 +191,17 @@ export class MapaPicker implements AfterViewInit, OnDestroy {
         if (r) this.ubicacionChange.emit({ lat, lng, direccion: r.displayName, placeId: r.placeId });
       });
     }
+  }
+
+  private marcadoDemasiadoRapido(): boolean {
+    const ahora = Date.now();
+    const transcurrido = ahora - this.ultimaMarcaMs;
+    if (this.ultimaMarcaMs > 0 && transcurrido < MapaPicker.INTERVALO_MARCA_MS) {
+      const restante = Math.ceil((MapaPicker.INTERVALO_MARCA_MS - transcurrido) / 1000);
+      this.toast.mostrar(`Solo se puede marcar una ubicación cada 5 segundos. Esperá ${restante}s.`, 'info');
+      return true;
+    }
+    this.ultimaMarcaMs = ahora;
+    return false;
   }
 }

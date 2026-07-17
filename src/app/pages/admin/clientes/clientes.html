@@ -1,0 +1,56 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-brand-900">Clientes</h1>
+    <p class="text-sm text-brand-700/70">Gestioná las altas y bajas de clientes.</p>
+  </div>
+
+  <input
+    type="search"
+    [ngModel]="busqueda()"
+    (ngModelChange)="busqueda.set($event)"
+    placeholder="Buscar por nombre, dirección o teléfono…"
+    class="w-full rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+  />
+
+  <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+    <h2 class="mb-3 font-semibold text-brand-900">Activos ({{ activosFiltrados().length }})</h2>
+    <ul class="space-y-2">
+      @for (c of activosFiltrados(); track c.id) {
+        <li class="flex items-center gap-2 rounded-xl border border-brand-100 bg-white px-4 py-2.5">
+          <div class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-semibold">{{ nombre(c) }}</span>
+            <span class="block truncate text-xs text-brand-700/70">{{ c.direccion }}{{ c.telefono ? ' · ' + c.telefono : '' }}</span>
+          </div>
+          <button
+            (click)="darBaja(c)"
+            [disabled]="procesando()"
+            class="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+          >Dar de baja</button>
+        </li>
+      } @empty {
+        <li class="py-3 text-center text-sm text-brand-700/60">No hay clientes activos.</li>
+      }
+    </ul>
+  </section>
+
+  <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+    <h2 class="mb-3 font-semibold text-brand-900">Dados de baja ({{ inactivosFiltrados().length }})</h2>
+    <ul class="space-y-2">
+      @for (c of inactivosFiltrados(); track c.id) {
+        <li class="flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-2.5 opacity-80">
+          <div class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-semibold line-through">{{ nombre(c) }}</span>
+            <span class="block truncate text-xs text-brand-700/70">{{ c.direccion }}{{ c.telefono ? ' · ' + c.telefono : '' }}</span>
+          </div>
+          <button
+            (click)="reactivar(c)"
+            [disabled]="procesando()"
+            class="shrink-0 rounded-lg border border-green-300 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50 disabled:opacity-50"
+          >Dar de alta</button>
+        </li>
+      } @empty {
+        <li class="py-3 text-center text-sm text-brand-700/60">No hay clientes dados de baja.</li>
+      }
+    </ul>
+  </section>
+</div>

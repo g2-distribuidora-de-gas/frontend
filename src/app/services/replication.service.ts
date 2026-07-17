@@ -100,7 +100,6 @@ export class ReplicationService {
                 sincronizado: true,
                 nombre: ex?.nombre ?? c.nombre,
                 apellido: ex?.apellido ?? '',
-                dni: ex?.dni ?? '',
                 telefono: c.telefono ?? ex?.telefono ?? '',
                 direccion: c.direccion ?? ex?.direccion ?? '',
                 activo: ex?.activo ?? c.activo ?? true,

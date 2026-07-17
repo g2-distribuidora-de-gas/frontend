@@ -30,32 +30,28 @@
 
         @if (mostrarFormCliente()) {
           <div class="mb-3 grid gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3 sm:grid-cols-2">
+            @if (soloFotoYDireccion()) {
+              <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 sm:col-span-2">
+                Como preventista, solo podés editar la dirección y la foto de este cliente.
+              </p>
+            }
             <input
               type="text"
               placeholder="Nombre *"
               [ngModel]="nuevoCliente().nombre"
+              [disabled]="soloFotoYDireccion()"
               (keydown)="sinDigitos($event)"
               (ngModelChange)="campoCliente('nombre', $event)"
-              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 disabled:cursor-not-allowed disabled:bg-brand-100/60 disabled:text-brand-700/50"
             />
             <input
               type="text"
               placeholder="Apellido *"
               [ngModel]="nuevoCliente().apellido"
+              [disabled]="soloFotoYDireccion()"
               (keydown)="sinDigitos($event)"
               (ngModelChange)="campoCliente('apellido', $event)"
-              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
-            />
-            <input
-              type="text"
-              placeholder="DNI *"
-              maxlength="10"
-              inputmode="numeric"
-              [ngModel]="nuevoCliente().dni"
-              (keydown)="soloDigitos($event)"
-              (paste)="pegarSoloDigitos($event, 'dni')"
-              (ngModelChange)="campoCliente('dni', $event)"
-              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 disabled:cursor-not-allowed disabled:bg-brand-100/60 disabled:text-brand-700/50"
             />
             <input
               type="tel"
@@ -64,10 +60,11 @@
               minlength="8"
               inputmode="numeric"
               [ngModel]="nuevoCliente().telefono"
+              [disabled]="soloFotoYDireccion()"
               (keydown)="soloDigitos($event)"
               (paste)="pegarSoloDigitos($event, 'telefono')"
               (ngModelChange)="campoCliente('telefono', $event)"
-              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 disabled:cursor-not-allowed disabled:bg-brand-100/60 disabled:text-brand-700/50"
             />
             <input
               type="text"
@@ -90,8 +87,8 @@
               <div>
                 <label class="mb-1 block text-xs font-semibold text-brand-700/80">Foto de fachada</label>
                 @if (fotoClientePreview(); as prev) {
-                  <div class="relative h-64 w-full overflow-hidden rounded-xl border border-brand-200">
-                    <img [src]="prev" alt="Vista previa de la fachada" class="h-full w-full object-cover" />
+                  <div class="relative flex h-64 max-h-64 w-full items-center justify-center overflow-hidden rounded-xl border border-brand-200 bg-brand-50">
+                    <img [src]="prev" alt="Vista previa de la fachada" class="max-h-full max-w-full object-contain" />
                     <button
                       type="button"
                       (click)="quitarFotoCliente()"
@@ -132,7 +129,7 @@
           type="search"
           [ngModel]="busqueda()"
           (ngModelChange)="busqueda.set($event)"
-          placeholder="Buscar por nombre, DNI o dirección…"
+          placeholder="Buscar por nombre o dirección…"
           class="mb-3 w-full rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
         />
         <ul class="max-h-56 space-y-2 overflow-y-auto pr-1">
@@ -146,7 +143,7 @@
                   : 'border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50'"
               >
                 <span class="block truncate text-sm font-semibold">{{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }}</span>
-                <span class="block truncate text-xs text-brand-700/70">DNI: {{ c.dni }} · {{ c.direccion }} · {{ c.telefono }}</span>
+                <span class="block truncate text-xs text-brand-700/70">{{ c.direccion }} · {{ c.telefono }}</span>
               </button>
               <button
                 (click)="editarCliente(c)"
@@ -158,46 +155,12 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                 </svg>
               </button>
-              <button
-                (click)="darBajaCliente(c)"
-                class="grid w-10 shrink-0 place-items-center rounded-xl border border-brand-100 text-brand-700/40 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-                [attr.aria-label]="'Dar de baja a ' + c.nombre + ' ' + c.apellido"
-                title="Dar de baja"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-              </button>
             </li>
           } @empty {
             <li class="py-3 text-center text-sm text-brand-700/60">No se encontraron clientes.</li>
           }
         </ul>
 
-        @if (clientesInactivos().length > 0) {
-          <div class="mt-3 border-t border-brand-100 pt-3">
-            <button
-              (click)="mostrarInactivos.set(!mostrarInactivos())"
-              class="text-xs font-semibold text-brand-700/60 transition-colors hover:text-brand-700"
-            >{{ mostrarInactivos() ? '▾' : '▸' }} Dados de baja ({{ clientesInactivos().length }})</button>
-            @if (mostrarInactivos()) {
-              <ul class="mt-2 space-y-2">
-                @for (c of clientesInactivos(); track c.id) {
-                  <li class="flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-2.5 opacity-70">
-                    <div class="min-w-0 flex-1">
-                      <span class="block truncate text-sm font-semibold line-through">{{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }}</span>
-                      <span class="block truncate text-xs text-brand-700/70">DNI: {{ c.dni }} · {{ c.direccion }}</span>
-                    </div>
-                    <button
-                      (click)="reactivarCliente(c)"
-                      class="shrink-0 rounded-lg border border-green-300 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50"
-                    >Reactivar</button>
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-        }
       </section>
 
       <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
@@ -289,7 +252,7 @@
         @if (clienteSeleccionado(); as c) {
           <p class="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm">
             <span class="font-semibold">{{ c.apellido ? c.apellido + ', ' + c.nombre : c.nombre }}</span>
-            <span class="block text-xs text-brand-700/70">DNI: {{ c.dni }} · {{ c.direccion }}</span>
+            <span class="block text-xs text-brand-700/70">{{ c.direccion }}</span>
           </p>
         } @else {
           <p class="mb-3 rounded-lg border border-dashed border-brand-300 px-3 py-2 text-sm text-brand-700/60">Sin cliente seleccionado</p>

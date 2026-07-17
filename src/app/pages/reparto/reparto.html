@@ -172,8 +172,8 @@
           <div class="flex items-start gap-3">
             <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white">{{ p.orden }}</span>
             <div class="min-w-0">
-              <h2 class="truncate text-lg font-bold text-brand-900">{{ p.cliente?.nombre ?? 'Cliente' }}</h2>
-              <p class="truncate text-sm text-brand-700/70">{{ p.cliente?.direccion }}</p>
+              <h2 class="break-words text-lg font-bold text-brand-900">{{ p.cliente?.nombre ?? 'Cliente' }}</h2>
+              <p class="break-words text-sm text-brand-700/70">{{ p.cliente?.direccion }}</p>
               @if (p.cliente?.telefono) {
                 <p class="text-xs text-brand-700/60">Tel: {{ p.cliente?.telefono }}</p>
               }

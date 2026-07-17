@@ -144,7 +144,6 @@ export class CatalogoService {
       sincronizado: false,
       nombre: datos.nombre,
       apellido: datos.apellido,
-      dni: datos.dni,
       telefono: datos.telefono ?? '',
       direccion: datos.direccion,
       activo: true,
@@ -196,7 +195,6 @@ export class CatalogoService {
       await doc.patch({
         nombre: datos.nombre,
         apellido: datos.apellido,
-        dni: datos.dni,
         telefono: resp.telefono ?? datos.telefono ?? '',
         direccion: resp.direccion ?? datos.direccion,
         latitud: datos.latitud ?? resp.latitud ?? null,
@@ -210,7 +208,6 @@ export class CatalogoService {
     await doc.patch({
       nombre: datos.nombre,
       apellido: datos.apellido,
-      dni: datos.dni,
       telefono: datos.telefono ?? '',
       direccion: datos.direccion,
       latitud: datos.latitud ?? null,

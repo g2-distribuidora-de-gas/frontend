@@ -11,6 +11,11 @@ export class ApiRutaService {
   async planificar(request: RutaPlanificarRequest): Promise<RutaResponse> {
     return firstValueFrom(this.http.post<RutaResponse>('/api/rutas/planificar', request));
   }
+
+  /** GET /api/rutas — todas las rutas (uso administrativo). */
+  async listarTodas(): Promise<RutaResponse[]> {
+    return firstValueFrom(this.http.get<RutaResponse[]>('/api/rutas'));
+  }
   async obtenerMiRutaActiva(repartidorId: number): Promise<RutaResponse> {
     return firstValueFrom(
       this.http.get<RutaResponse>(`/api/rutas/mis-rutas/${repartidorId}`),

@@ -9,6 +9,7 @@ import { ApiClienteService } from '../../services/api-cliente.service';
 import { PedidoService } from '../../services/pedido.service';
 import { ToastService } from '../../services/toast.service';
 import { ReplicationService } from '../../services/replication.service';
+import { AuthService } from '../../services/auth.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MapaPicker, UbicacionSeleccionada } from '../../components/mapa-picker/mapa-picker';
 
@@ -24,6 +25,10 @@ export class TomaPedido {
   private router = inject(Router);
   private toast = inject(ToastService);
   private replication = inject(ReplicationService);
+  private auth = inject(AuthService);
+  protected soloFotoYDireccion = computed(
+    () => this.auth.esPreventista() && this.editandoClienteId() != null,
+  );
 
   protected clientes = toSignal(this.catalogo.clientesActivos$(), { initialValue: [] as Cliente[] });
   protected clientesInactivos = toSignal(this.catalogo.clientesInactivos$(), { initialValue: [] as Cliente[] });
@@ -41,7 +46,7 @@ export class TomaPedido {
     const q = this.busqueda().toLowerCase().trim();
     if (!q) return this.clientes();
     return this.clientes().filter((c) =>
-      `${c.nombre} ${c.apellido} ${c.direccion} ${c.dni}`.toLowerCase().includes(q),
+      `${c.nombre} ${c.apellido} ${c.direccion}`.toLowerCase().includes(q),
     );
   });
 
@@ -102,14 +107,14 @@ export class TomaPedido {
 
 
   protected mostrarFormCliente = signal(false);
-  protected nuevoCliente = signal({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+  protected nuevoCliente = signal({ nombre: '', apellido: '', telefono: '', direccion: '' });
   protected nuevoClienteUbicacion = signal<UbicacionSeleccionada | null>(null);
   protected editandoClienteId = signal<string | null>(null);
   protected ubicInicialLat = signal<number | null>(null);
   protected ubicInicialLng = signal<number | null>(null);
   protected abrirNuevoCliente(): void {
     this.editandoClienteId.set(null);
-    this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+    this.nuevoCliente.set({ nombre: '', apellido: '', telefono: '', direccion: '' });
     this.nuevoClienteUbicacion.set(null);
     this.ubicInicialLat.set(null);
     this.ubicInicialLng.set(null);
@@ -122,7 +127,6 @@ export class TomaPedido {
     this.nuevoCliente.set({
       nombre: c.nombre,
       apellido: c.apellido,
-      dni: c.dni,
       telefono: c.telefono,
       direccion: c.direccion,
     });
@@ -187,30 +191,25 @@ export class TomaPedido {
 
   protected onUbicacionCliente(u: UbicacionSeleccionada): void {
     this.nuevoClienteUbicacion.set(u);
-    if (u.direccion && !this.nuevoCliente().direccion.trim()) {
+    if (u.direccion) {
       this.nuevoCliente.update((n) => ({ ...n, direccion: u.direccion! }));
     }
   }
 
-  protected campoCliente(campo: 'nombre' | 'apellido' | 'dni' | 'telefono' | 'direccion', valor: string): void {
+  protected campoCliente(campo: 'nombre' | 'apellido' | 'telefono' | 'direccion', valor: string): void {
     if (campo === 'telefono') valor = valor.replace(/\D/g, '').slice(0, 10);
-    if (campo === 'dni') valor = valor.replace(/\D/g, '').slice(0, 10);
     if (campo === 'nombre' || campo === 'apellido') valor = valor.replace(/\d/g, '');
     this.nuevoCliente.update((n) => ({ ...n, [campo]: valor }));
   }
 
   private validarNuevoCliente(): boolean {
     const n = this.nuevoCliente();
-    if (!n.nombre.trim() || !n.apellido.trim() || !n.dni.trim() || !n.telefono.trim() || !n.direccion.trim()) {
+    if (!n.nombre.trim() || !n.apellido.trim() || !n.telefono.trim() || !n.direccion.trim()) {
       this.toast.error('Completá todos los campos del cliente.');
       return false;
     }
     if (/\d/.test(n.nombre) || /\d/.test(n.apellido)) {
       this.toast.error('El nombre y el apellido no pueden contener números.');
-      return false;
-    }
-    if (!/^\d{7,10}$/.test(n.dni.trim())) {
-      this.toast.error('El DNI debe tener entre 7 y 10 dígitos.');
       return false;
     }
     if (!/^\d{8,10}$/.test(n.telefono.trim())) {
@@ -228,7 +227,7 @@ export class TomaPedido {
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && /\d/.test(e.key)) e.preventDefault();
   }
 
-  protected pegarSoloDigitos(e: ClipboardEvent, campo: 'telefono' | 'dni'): void {
+  protected pegarSoloDigitos(e: ClipboardEvent, campo: 'telefono'): void {
     e.preventDefault();
     const pegado = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
     const input = e.target as HTMLInputElement;
@@ -246,7 +245,6 @@ export class TomaPedido {
     const datos = {
       nombre: n.nombre.trim(),
       apellido: n.apellido.trim(),
-      dni: n.dni.trim(),
       telefono: n.telefono.trim(),
       direccion: n.direccion.trim(),
       latitud: u ? u.lat : null,
@@ -275,7 +273,7 @@ export class TomaPedido {
           this.toast.mostrar('Cliente guardado sin conexión. La foto se podrá cargar cuando se sincronice.', 'info');
         }
       }
-      this.nuevoCliente.set({ nombre: '', apellido: '', dni: '', telefono: '', direccion: '' });
+      this.nuevoCliente.set({ nombre: '', apellido: '', telefono: '', direccion: '' });
       this.nuevoClienteUbicacion.set(null);
       this.ubicInicialLat.set(null);
       this.ubicInicialLng.set(null);

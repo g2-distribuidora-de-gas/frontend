@@ -8,7 +8,12 @@ import { ApiRutaService } from '../../../services/api-ruta.service';
 import { ToastService } from '../../../services/toast.service';
 import { UsuarioResponse } from '../../../models/usuario.model';
 import { PedidoResponse } from '../../../models/pedido.model';
-import { RutaResponse } from '../../../models/ruta.model';
+import {
+  RutaResponse,
+  RutaPedidoResponse,
+  ESTADO_RUTA_LABELS,
+  ESTADO_ENTREGA_LABELS,
+} from '../../../models/ruta.model';
 import { MapaRuta } from '../../../components/mapa-ruta/mapa-ruta';
 
 @Component({
@@ -23,9 +28,15 @@ export class RutasAdmin {
   private toast = inject(ToastService);
 
   protected repartidores = signal<UsuarioResponse[]>([]);
+  protected usuarios = signal<UsuarioResponse[]>([]);
   protected pedidos = signal<PedidoResponse[]>([]);
+  protected todasRutas = signal<RutaResponse[]>([]);
+  protected rutaExpandidaId = signal<number | null>(null);
   protected cargando = signal(true);
   protected planificando = signal(false);
+
+  protected readonly ESTADO_RUTA_LABELS = ESTADO_RUTA_LABELS;
+  protected readonly ESTADO_ENTREGA_LABELS = ESTADO_ENTREGA_LABELS;
 
   protected repartidorId = signal<number | null>(null);
   protected seleccionados = signal<Set<number>>(new Set());
@@ -53,19 +64,65 @@ export class RutasAdmin {
     void this.cargar();
   }
 
-  private async cargar(): Promise<void> {
+  protected async cargar(): Promise<void> {
     this.cargando.set(true);
     try {
-      const [usuarios, pedidos] = await Promise.all([
+      const [usuarios, pedidos, rutas] = await Promise.all([
         this.apiUsuario.listarTodos(),
         this.apiPedido.listarTodos(),
+        this.apiRuta.listarTodas().catch(() => [] as RutaResponse[]),
       ]);
+      this.usuarios.set(usuarios);
       this.repartidores.set(usuarios.filter((u) => u.rol === 'REPARTIDOR' && u.activo));
       this.pedidos.set(pedidos);
+      this.todasRutas.set(this.ordenarRutas(rutas));
     } catch (e) {
       this.toast.error(this.msgError(e, 'No se pudieron cargar los datos.'));
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  private ordenarRutas(rutas: RutaResponse[]): RutaResponse[] {
+    return [...rutas].sort((a, b) => b.id - a.id);
+  }
+
+  protected toggleRuta(id: number): void {
+    this.rutaExpandidaId.set(this.rutaExpandidaId() === id ? null : id);
+  }
+
+  protected nombreRepartidorDe(id: number): string {
+    const u = this.usuarios().find((x) => x.id === id);
+    return u ? u.nombreCompleto : `#${id}`;
+  }
+
+  protected entregadasDe(r: RutaResponse): number {
+    return r.paradas.filter((p) => p.estadoEntrega === 'ENTREGADO').length;
+  }
+
+  protected claseEstadoRuta(estado: RutaResponse['estado']): string {
+    switch (estado) {
+      case 'EN_CURSO':
+        return 'border-blue-300 bg-blue-50 text-blue-700';
+      case 'COMPLETADA':
+        return 'border-green-300 bg-green-50 text-green-700';
+      case 'CANCELADA':
+        return 'border-red-200 bg-red-50 text-red-600';
+      case 'REPROGRAMADA':
+        return 'border-amber-300 bg-amber-50 text-amber-700';
+      default:
+        return 'border-brand-300 bg-brand-100 text-brand-800';
+    }
+  }
+
+  protected claseEntrega(estado: RutaPedidoResponse['estadoEntrega']): string {
+    switch (estado) {
+      case 'ENTREGADO':
+        return 'border-green-300 bg-green-50 text-green-700';
+      case 'FALLIDO':
+        return 'border-red-200 bg-red-50 text-red-600';
+      default:
+        return 'border-brand-200 bg-brand-50 text-brand-700';
     }
   }
 

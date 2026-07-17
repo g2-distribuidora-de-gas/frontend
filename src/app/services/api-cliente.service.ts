@@ -34,7 +34,6 @@ export class ApiClienteService {
       id: String(resp.id),
       nombre: resp.nombre,
       apellido: '',
-      dni: '',
       telefono: resp.telefono ?? '',
       direccion: resp.direccion,
       activo: true,

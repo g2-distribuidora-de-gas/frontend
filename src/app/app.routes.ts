@@ -33,6 +33,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/admin/usuarios/usuarios').then((m) => m.Usuarios),
     title: 'Usuarios | Distribuidora de Gas',
   },
+  {
+    path: 'admin/clientes',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/clientes/clientes').then((m) => m.ClientesAdmin),
+    title: 'Clientes | Distribuidora de Gas',
+  },
     {
     path: 'admin/garrafas',
     canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],

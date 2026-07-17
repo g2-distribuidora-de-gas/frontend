@@ -124,6 +124,10 @@ export class RxDatabaseService {
             backendId: /^\d+$/.test(doc.id) ? Number(doc.id) : null,
             sincronizado: true,
           }),
+          2: (doc) => {
+            const { dni, ...resto } = doc;
+            return resto;
+          },
         },
       },
       garrafas: { schema: garrafaSchema },
