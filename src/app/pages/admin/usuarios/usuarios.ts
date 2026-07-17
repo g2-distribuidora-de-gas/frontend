@@ -47,6 +47,8 @@ export class Usuarios {
   protected form = signal<FormUsuario>({ ...FORM_VACIO });
   protected filtroRol = signal<string>('todos');
   protected busqueda = signal('');
+  protected desactivarPendiente = signal<UsuarioResponse | null>(null);
+  protected desactivando = signal(false);
 
   protected rolesDisponibles = computed<RolUsuario[]>(() => {
     const base: RolUsuario[] = ['PREVENTISTA', 'REPARTIDOR'];
@@ -165,7 +167,7 @@ export class Usuarios {
     return true;
   }
 
-  protected async desactivar(u: UsuarioResponse): Promise<void> {
+  protected pedirDesactivar(u: UsuarioResponse): void {
     if (u.rol === 'SUPER_ADMIN') {
       this.toast.error('No se puede desactivar a un super admin.');
       return;
@@ -178,13 +180,26 @@ export class Usuarios {
       this.toast.error('No se puede desactivar a otro administrador.');
       return;
     }
-    if (!confirm(`¿Desactivar a ${u.nombreCompleto}? Podrás reactivarlo luego.`)) return;
+    this.desactivarPendiente.set(u);
+  }
+
+  protected cancelarDesactivar(): void {
+    this.desactivarPendiente.set(null);
+  }
+
+  protected async confirmarDesactivar(): Promise<void> {
+    const u = this.desactivarPendiente();
+    if (!u || this.desactivando()) return;
+    this.desactivando.set(true);
     try {
       await this.api.eliminar(u.id);
       this.toast.exito('Usuario desactivado.');
+      this.desactivarPendiente.set(null);
       await this.cargar();
     } catch (e) {
       this.toast.error(this.msgError(e, 'No se pudo desactivar el usuario.'));
+    } finally {
+      this.desactivando.set(false);
     }
   }
 
