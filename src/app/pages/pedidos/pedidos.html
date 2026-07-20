@@ -75,9 +75,9 @@
           @if (expandido() === p.uuidOffline) {
             <div class="border-t border-brand-100 bg-brand-50/60 px-4 py-3 sm:px-5">
               <ul class="divide-y divide-brand-100 text-sm">
-                @for (d of p.detallesResueltos; track d.garrafaId) {
+                @for (d of p.detallesResueltos; track d.tipoGarrafaId) {
                   <li class="flex items-center justify-between py-1.5">
-                    <span>{{ d.cantidad }} × {{ d.garrafa ? nombreGarrafa(d.garrafa.tipo) : 'Garrafa #' + d.garrafaId }}</span>
+                    <span>{{ d.cantidad }} × {{ d.garrafa ? d.garrafa.descripcion : 'Garrafa #' + d.tipoGarrafaId }}</span>
                     <span class="tabular-nums">$ {{ d.subtotal | number: '1.0-0' }} <span class="text-xs text-brand-700/50">(u. $ {{ d.precioUnitario | number: '1.0-0' }})</span></span>
                   </li>
                 }

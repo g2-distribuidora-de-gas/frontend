@@ -8,7 +8,7 @@ import { Observable, combineLatest, EMPTY } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
 export interface ItemNuevoPedido {
-  garrafaId: string;
+  tipoGarrafaId: string;
   cantidad: number;
   precioUnitario: number;
 }
@@ -39,7 +39,7 @@ export class PedidoService {
     const total = items.reduce((acc, i) => acc + i.cantidad * i.precioUnitario, 0);
 
     const detalles: DetallePedido[] = items.map((i) => ({
-      garrafaId: i.garrafaId,
+      tipoGarrafaId: i.tipoGarrafaId,
       cantidad: i.cantidad,
       precioUnitario: i.precioUnitario,
       subtotal: i.cantidad * i.precioUnitario,
@@ -146,7 +146,7 @@ export class PedidoService {
       cliente: cMap.get(p.clienteId),
       detallesResueltos: (p.detalles ?? []).map((d: DetallePedido) => ({
         ...d,
-        garrafa: gMap.get(d.garrafaId),
+        garrafa: gMap.get(d.tipoGarrafaId),
       })),
     } as PedidoCompleto;
   }

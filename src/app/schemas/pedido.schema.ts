@@ -31,12 +31,12 @@ export const pedidoSchemaLiteral = {
       items: {
         type: 'object',
         properties: {
-          garrafaId: { type: 'string', maxLength: 36 },
+          tipoGarrafaId: { type: 'string', maxLength: 36 },
           cantidad: { type: 'number' },
           precioUnitario: { type: 'number' },
           subtotal: { type: 'number' },
         },
-        required: ['garrafaId', 'cantidad', 'precioUnitario', 'subtotal'],
+        required: ['tipoGarrafaId', 'cantidad', 'precioUnitario', 'subtotal'],
       },
     },
     updatedAt: { type: 'string', maxLength: 50 },

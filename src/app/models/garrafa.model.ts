@@ -1,43 +1,41 @@
-/** Tipos de garrafa alineados con el enum TipoGarrafa del backend */
-export type TipoGarrafa = 'GARRAFA_10KG' | 'GARRAFA_15KG' | 'GARRAFA_45KG';
+export type CodigoGarrafa = string; 
 
-/** Modelo local (RxDB) — alineado con el backend GarrafaResponse */
 export interface Garrafa {
   id: string;
-  tipo: TipoGarrafa;
+  codigo: CodigoGarrafa;
+  descripcion: string;
   capacidadKg: number;
   precio: number;
-  stockDisponible: number;
   activo: boolean;
   updatedAt: string;
 }
 
-/** DTO que envía el backend */
-export interface GarrafaResponse {
+export interface TipoGarrafaStockResponse {
   id: number;
-  tipo: TipoGarrafa;
+  codigo: string;
+  descripcion: string;
   capacidadKg: number;
-  precio: number;
-  stockDisponible: number;
   activo: boolean;
-  updatedAt?: string;
+  precio?: number;
 }
 
-/** DTO para crear garrafa en el backend */
-export interface GarrafaRequest {
-  tipo: TipoGarrafa;
+export interface TipoGarrafaStockRequest {
+  codigo: string;
+  descripcion: string;
   capacidadKg: number;
-  precio: number;
-  stockDisponible: number;
-  activo?: boolean;
+  precio?: number;
 }
 
-/** Helper para mostrar el nombre legible del tipo */
-export function nombreGarrafa(tipo: TipoGarrafa): string {
-  switch (tipo) {
-    case 'GARRAFA_10KG': return 'Garrafa 10 kg';
-    case 'GARRAFA_15KG': return 'Garrafa 15 kg';
-    case 'GARRAFA_45KG': return 'Garrafa 45 kg';
-    default: return tipo;
-  }
+const NOMBRES_CONOCIDOS: Record<string, string> = {
+  '10KG': 'Garrafa 10 kg',
+  '15KG': 'Garrafa 15 kg',
+  '45KG': 'Garrafa 45 kg',
+  GARRAFA_10KG: 'Garrafa 10 kg',
+  GARRAFA_15KG: 'Garrafa 15 kg',
+  GARRAFA_45KG: 'Garrafa 45 kg',
+};
+
+export function nombreGarrafa(codigo: string | null | undefined): string {
+  if (!codigo) return '';
+  return NOMBRES_CONOCIDOS[codigo] ?? codigo;
 }

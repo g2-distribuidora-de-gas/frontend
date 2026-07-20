@@ -1,7 +1,7 @@
 <div class="min-h-dvh flex flex-col">
   @if (!enLogin()) {
     <header class="sticky top-0 z-20 bg-brand-500 shadow-md">
-      <div class="mx-auto max-w-5xl px-4">
+      <div class="mx-auto max-w-7xl px-4">
         <div class="flex h-14 items-center justify-between gap-3">
           <a routerLink="/" class="flex items-center gap-2 text-white">
             <span class="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-lg">:D</span>
@@ -55,6 +55,18 @@
                   routerLinkActive="bg-white text-brand-700 shadow-sm"
                   class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
                 >Garrafas</a>
+                <a routerLink="/admin/depositos"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Depósitos</a>
+                <a routerLink="/admin/stock"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Stock</a>
+                <a routerLink="/admin/movimientos"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Movimientos</a>
                 <a routerLink="/admin/rutas"
                   routerLinkActive="bg-white text-brand-700 shadow-sm"
                   class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
@@ -110,6 +122,18 @@
               routerLinkActive="bg-white text-brand-700 shadow-sm"
               class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
             >Garrafas</a>
+            <a routerLink="/admin/depositos" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Depósitos</a>
+            <a routerLink="/admin/stock" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Stock</a>
+            <a routerLink="/admin/movimientos" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Movimientos</a>
             <a routerLink="/admin/rutas" (click)="cerrarMenu()"
               routerLinkActive="bg-white text-brand-700 shadow-sm"
               class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"

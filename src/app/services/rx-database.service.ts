@@ -12,6 +12,7 @@ import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { clienteSchema, ClienteDocType } from '../schemas/cliente.schema';
 import { garrafaSchema, GarrafaDocType } from '../schemas/garrafa.schema';
+import { depositoSchema, DepositoDocType } from '../schemas/deposito.schema';
 import { pedidoSchema, PedidoDocType } from '../schemas/pedido.schema';
 import { rutaSchema, RutaDocType } from '../schemas/ruta.schema';
 import { eventoParadaSchema, EventoParadaDocType } from '../schemas/evento-parada.schema';
@@ -38,6 +39,7 @@ export const ESTADOS: EstadoInfo[] = [
 export type AppCollections = {
   clientes: RxCollection<ClienteDocType>;
   garrafas: RxCollection<GarrafaDocType>;
+  depositos: RxCollection<DepositoDocType>;
   pedidos: RxCollection<PedidoDocType>;
   rutas: RxCollection<RutaDocType>;
   eventosParada: RxCollection<EventoParadaDocType>;
@@ -63,6 +65,10 @@ export class RxDatabaseService {
 
   get garrafas(): RxCollection<GarrafaDocType> {
     return this._db.garrafas;
+  }
+
+  get depositos(): RxCollection<DepositoDocType> {
+    return this._db.depositos;
   }
 
   get pedidos(): RxCollection<PedidoDocType> {
@@ -110,7 +116,7 @@ export class RxDatabaseService {
     // Con un nombre nuevo se crea una base limpia y se evita el conflicto de
     // esquema de RxDB; los datos se re-obtienen del backend via replicacion.
     this._db = await createRxDatabase<AppCollections>({
-      name: 'distribuidora-gas-rxdb-v2',
+      name: 'distribuidora-gas-rxdb-v3',
       storage,
       ignoreDuplicate: true,
     });
@@ -131,6 +137,7 @@ export class RxDatabaseService {
         },
       },
       garrafas: { schema: garrafaSchema },
+      depositos: { schema: depositoSchema },
       pedidos: {
         schema: pedidoSchema,
         migrationStrategies: {
@@ -166,8 +173,8 @@ export class RxDatabaseService {
         const nombre = db.name ?? '';
 
         return (
-          (nombre.includes('distribuidora-gas') && !nombre.includes('-rxdb-v2')) &&
-          !nombre.includes('rxdb-dexie--distribuidora-gas-rxdb-v2')
+          (nombre.includes('distribuidora-gas') && !nombre.includes('-rxdb-v3')) &&
+          !nombre.includes('rxdb-dexie--distribuidora-gas-rxdb-v3')
         );
       });
       for (const dexieDb of obsoletas) {

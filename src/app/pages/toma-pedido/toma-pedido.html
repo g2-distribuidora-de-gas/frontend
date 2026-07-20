@@ -175,20 +175,13 @@
           @for (g of garrafas(); track g.id) {
             <div
               class="rounded-xl border p-4 transition-colors"
-              [class]="sinStock(g)
-                ? 'border-red-100 bg-red-50/40'
-                : (cantidadDe(g) > 0 ? 'border-brand-400 bg-brand-50' : 'border-brand-100')"
+              [class]="cantidadDe(g) > 0 ? 'border-brand-400 bg-brand-50' : 'border-brand-100'"
             >
               <div class="mb-1 flex items-start justify-between gap-2">
                 <div>
-                  <p class="font-semibold leading-tight">{{ nombreGarrafa(g.tipo) }}</p>
-                  <p class="text-xs uppercase tracking-wide text-brand-700/60">{{ g.tipo }} · {{ g.capacidadKg }} kg</p>
+                  <p class="font-semibold leading-tight">{{ g.descripcion }}</p>
+                  <p class="text-xs uppercase tracking-wide text-brand-700/60">{{ g.codigo }} · {{ g.capacidadKg }} kg</p>
                 </div>
-                @if (sinStock(g)) {
-                  <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">Sin stock</span>
-                } @else if (g.stockDisponible !== undefined) {
-                  <span class="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">Stock: {{ g.stockDisponible }}</span>
-                }
               </div>
               <p class="mb-3 text-lg font-bold text-brand-800">$ {{ g.precio | number: '1.0-0' }}</p>
 
@@ -204,20 +197,17 @@
                     #qty
                     type="number"
                     min="0"
-                    [max]="stockDe(g)"
                     step="1"
                     inputmode="numeric"
-                    [disabled]="sinStock(g)"
                     (keydown)="bloquearNoEnteros($event)"
                     [value]="cantidadDe(g)"
                     (input)="setCantidad(g, qty)"
-                    [attr.aria-label]="'Cantidad de ' + nombreGarrafa(g.tipo)"
+                    [attr.aria-label]="'Cantidad de ' + g.descripcion"
                     class="w-14 rounded-lg border border-brand-200 bg-white py-1 text-center text-lg font-bold tabular-nums outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <button
                     (click)="ajustar(g, 1)"
-                    [disabled]="cantidadDe(g) >= stockDe(g)"
-                    class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-lg font-bold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-30"
+                    class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-lg font-bold text-white transition-colors hover:bg-brand-600"
                     aria-label="Agregar uno"
                   >+</button>
                 </div>
@@ -262,7 +252,7 @@
           <ul class="mb-3 divide-y divide-brand-100 text-sm">
             @for (i of items(); track i.garrafa.id) {
               <li class="flex items-center justify-between py-2">
-                <span>{{ i.cantidad }} × {{ nombreGarrafa(i.garrafa.tipo) }}</span>
+                <span>{{ i.cantidad }} × {{ i.garrafa.descripcion }}</span>
                 <span class="font-medium tabular-nums">$ {{ i.subtotal | number: '1.0-0' }}</span>
               </li>
             }

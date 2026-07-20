@@ -1,4 +1,3 @@
-import type { TipoGarrafa } from './garrafa.model';
 import type { EstadoPedido } from './pedido.model';
 
 export type EstadoRuta = 'PLANIFICADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA' | 'REPROGRAMADA';
@@ -70,8 +69,8 @@ export interface RutaPlanificarRequest {
 
 export interface DeliveryDetalleResponse {
   id: number;
-  garrafaId: number;
-  garrafaTipo: TipoGarrafa;
+  tipoGarrafaId: number;
+  garrafaTipo: string;
   cantidad: number;
   cantidadEntregada?: number | null;
   precioUnitario: number;
@@ -89,7 +88,7 @@ export interface DeliveryReadOnlyResponse {
 
 
 export interface ParadaDetalleOffline {
-  garrafaTipo: TipoGarrafa;
+  garrafaTipo: string;
   cantidad: number;
   precioUnitario?: number;
   subtotal?: number;

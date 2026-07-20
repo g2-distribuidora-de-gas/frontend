@@ -1,5 +1,5 @@
 import type { Cliente } from './cliente.model';
-import type { Garrafa, TipoGarrafa } from './garrafa.model';
+import type { Garrafa } from './garrafa.model';
 
 /** Estados alineados con el enum EstadoPedido del backend */
 export type EstadoPedido = 'PENDIENTE' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO' | 'REPROGRAMADO';
@@ -15,7 +15,7 @@ export const ESTADO_LABELS: Record<EstadoPedido, string> = {
 
 /** Detalle de pedido embebido dentro del documento Pedido */
 export interface DetallePedido {
-  garrafaId: string;
+  tipoGarrafaId: string;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
@@ -46,7 +46,7 @@ export interface PedidoCompleto extends Pedido {
 // ─── DTOs del backend ───
 
 export interface PedidoDetalleRequest {
-  garrafaId: number;
+  tipoGarrafaId: number;
   cantidad: number;
 }
 
@@ -61,8 +61,8 @@ export interface PedidoRequest {
 
 export interface PedidoDetalleResponse {
   id: number;
-  garrafaId: number;
-  garrafaTipo: TipoGarrafa;
+  tipoGarrafaId: number;
+  garrafaTipo: string;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;

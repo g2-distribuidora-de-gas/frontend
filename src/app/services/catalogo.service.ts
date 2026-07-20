@@ -1,9 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { Garrafa, GarrafaRequest, TipoGarrafa } from '../models/garrafa.model';
+import { Garrafa, TipoGarrafaStockRequest } from '../models/garrafa.model';
+import { Deposito, DepositoRequest, depositoToLocal } from '../models/deposito.model';
 import { Cliente } from '../models/cliente.model';
 import { RxDatabaseService } from './rx-database.service';
 import { ApiClienteService } from './api-cliente.service';
 import { ApiGarrafaService } from './api-garrafa.service';
+import { ApiDepositoService } from './api-deposito.service';
 import { DbRecoveryService } from './db-recovery.service';
 import { ReplicationService } from './replication.service';
 import { Observable, EMPTY } from 'rxjs';
@@ -14,6 +16,7 @@ export class CatalogoService {
   private rxDb = inject(RxDatabaseService);
   private apiCliente = inject(ApiClienteService);
   private apiGarrafa = inject(ApiGarrafaService);
+  private apiDeposito = inject(ApiDepositoService);
   private recovery = inject(DbRecoveryService);
   private replication = inject(ReplicationService);
 
@@ -21,6 +24,14 @@ export class CatalogoService {
     return this.protegerDbCerrada(
       this.rxDb.garrafas
         .find({ selector: { activo: true } })
+        .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa))),
+    );
+  }
+
+  garrafasTodas$(): Observable<Garrafa[]> {
+    return this.protegerDbCerrada(
+      this.rxDb.garrafas
+        .find({ sort: [{ codigo: 'asc' }] })
         .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Garrafa))),
     );
   }
@@ -53,65 +64,106 @@ export class CatalogoService {
     );
   }
 
-  async crearGarrafa(datos: GarrafaRequest): Promise<string> {
+  async crearGarrafa(datos: TipoGarrafaStockRequest): Promise<string> {
     if (!navigator.onLine) {
-      throw new Error('No se pueden crear garrafas.');
+      throw new Error('No se pueden crear tipos de garrafa.');
     }
-    const resp = await this.apiGarrafa.crear({ ...datos, activo: true });
-    const local: Garrafa = {
-      id: String(resp.id),
-      tipo: resp.tipo,
-      capacidadKg: resp.capacidadKg,
-      precio: resp.precio,
-      stockDisponible: resp.stockDisponible,
-      activo: resp.activo,
-      updatedAt: new Date().toISOString(),
-    };
+    const resp = await this.apiGarrafa.crear(datos);
+    const local = ApiGarrafaService.toLocal(resp);
+
+    if (!local.precio && datos.precio != null) local.precio = datos.precio;
     await this.rxDb.garrafas.upsert(local);
     return local.id;
   }
+
   async editarGarrafa(
     id: string,
-    cambios: { precio?: number; stockDisponible?: number },
+    cambios: { descripcion?: string; capacidadKg?: number; precio?: number },
   ): Promise<void> {
     if (!navigator.onLine) {
-      throw new Error('No se puede editar la garrafa.');
+      throw new Error('No se puede editar el tipo de garrafa.');
     }
     const doc = await this.rxDb.garrafas.findOne(id).exec();
-    if (!doc) throw new Error('Garrafa no encontrada.');
+    if (!doc) throw new Error('Tipo de garrafa no encontrado.');
 
-    const precio = cambios.precio ?? doc.precio;
-    const stockDisponible = cambios.stockDisponible ?? doc.stockDisponible ?? 0;
+    const descripcion = cambios.descripcion ?? doc.descripcion ?? '';
+    const capacidadKg = cambios.capacidadKg ?? doc.capacidadKg;
+    const precio = cambios.precio ?? doc.precio ?? 0;
 
-    await this.apiGarrafa.actualizar(Number(id), {
-      tipo: doc.tipo as TipoGarrafa,
-      capacidadKg: doc.capacidadKg,
+    const resp = await this.apiGarrafa.actualizar(Number(id), {
+      codigo: doc.codigo,
+      descripcion,
+      capacidadKg,
       precio,
-      stockDisponible,
-      activo: doc.activo,
     });
 
-    await doc.patch({ precio, stockDisponible, updatedAt: new Date().toISOString() });
+    await doc.patch({
+      descripcion: resp.descripcion ?? descripcion,
+      capacidadKg: resp.capacidadKg ?? capacidadKg,
+      precio: resp.precio ?? precio,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
-  async reponerStock(id: string, cantidadAgregar: number): Promise<void> {
+  async cambiarEstadoGarrafa(id: string, activo: boolean): Promise<void> {
     if (!navigator.onLine) {
-      throw new Error('No se puede reponer stock.');
+      throw new Error('No se puede cambiar el estado.');
     }
     const doc = await this.rxDb.garrafas.findOne(id).exec();
-    if (!doc) throw new Error('Garrafa no encontrada.');
+    if (!doc) throw new Error('Tipo de garrafa no encontrado.');
+    const resp = await this.apiGarrafa.cambiarEstado(Number(id), activo);
+    await doc.patch({ activo: resp.activo, updatedAt: new Date().toISOString() });
+  }
 
-    const nuevoStock = (doc.stockDisponible ?? 0) + cantidadAgregar;
+  // ─── Depósitos (catálogo cacheado offline) ───
 
-    await this.apiGarrafa.actualizar(Number(id), {
-      tipo: doc.tipo as TipoGarrafa,
-      capacidadKg: doc.capacidadKg,
-      precio: doc.precio,
-      stockDisponible: nuevoStock,
-      activo: doc.activo,
-    });
+  depositosActivos$(): Observable<Deposito[]> {
+    return this.protegerDbCerrada(
+      this.rxDb.depositos
+        .find({ selector: { activo: true }, sort: [{ nombre: 'asc' }] })
+        .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Deposito))),
+    );
+  }
 
-    await doc.patch({ stockDisponible: nuevoStock, updatedAt: new Date().toISOString() });
+  depositosTodos$(): Observable<Deposito[]> {
+    return this.protegerDbCerrada(
+      this.rxDb.depositos
+        .find({ sort: [{ nombre: 'asc' }] })
+        .$.pipe(map((docs) => docs.map((d) => d.toJSON() as unknown as Deposito))),
+    );
+  }
+
+  async getDepositos(): Promise<Deposito[]> {
+    const docs = await this.rxDb.depositos.find({ sort: [{ nombre: 'asc' }] }).exec();
+    return docs.map((d) => d.toJSON() as unknown as Deposito);
+  }
+
+  async crearDeposito(datos: DepositoRequest): Promise<string> {
+    if (!navigator.onLine) throw new Error('No se pueden crear depósitos.');
+    const resp = await this.apiDeposito.crear(datos);
+    const local = depositoToLocal(resp);
+    await this.rxDb.depositos.upsert(local);
+    return local.id;
+  }
+
+  async editarDeposito(id: string, datos: DepositoRequest): Promise<void> {
+    if (!navigator.onLine) throw new Error('No se puede editar el depósito.');
+    const resp = await this.apiDeposito.actualizar(Number(id), datos);
+    await this.rxDb.depositos.upsert(depositoToLocal(resp));
+  }
+
+  async cambiarEstadoDeposito(id: string, activo: boolean): Promise<void> {
+    if (!navigator.onLine) throw new Error('No se puede cambiar el estado.');
+    const resp = await this.apiDeposito.cambiarEstado(Number(id), activo);
+    await this.rxDb.depositos.upsert(depositoToLocal(resp));
+  }
+
+  async refrescarDepositos(): Promise<void> {
+    if (!navigator.onLine) return;
+    const lista = await this.apiDeposito.listar({ soloActivos: false });
+    for (const d of lista) {
+      await this.rxDb.depositos.upsert(depositoToLocal(d));
+    }
   }
 
   async getClientesActivos(): Promise<Cliente[]> {
@@ -182,7 +234,7 @@ export class CatalogoService {
 
     if (yaEnBackend) {
       if (!navigator.onLine) {
-        throw new Error('No se pueden editar clientes sin conexión.');
+        throw new Error('No se pueden editar clientes.');
       }
       const nombreCompleto = `${datos.nombre} ${datos.apellido}`.trim();
       const resp = await this.apiCliente.actualizar(doc.backendId!, {

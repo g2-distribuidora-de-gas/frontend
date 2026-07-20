@@ -11,15 +11,15 @@ export const garrafaSchemaLiteral = {
   type: 'object',
   properties: {
     id: { type: 'string', maxLength: 36 },
-    tipo: { type: 'string', maxLength: 20 },
+    codigo: { type: 'string', maxLength: 20 },
+    descripcion: { type: 'string', maxLength: 120 },
     capacidadKg: { type: 'number' },
     precio: { type: 'number' },
-    stockDisponible: { type: 'number' },
     activo: { type: 'boolean' },
     updatedAt: { type: 'string', maxLength: 50 },
   },
-  required: ['id', 'tipo', 'capacidadKg', 'precio', 'activo', 'updatedAt'] as const,
-  indexes: ['updatedAt', 'tipo'],
+  required: ['id', 'codigo', 'capacidadKg', 'activo', 'updatedAt'] as const,
+  indexes: ['updatedAt', 'codigo'],
 } as const;
 
 const schemaTyped = toTypedRxJsonSchema(garrafaSchemaLiteral);

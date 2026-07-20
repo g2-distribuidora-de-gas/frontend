@@ -1,0 +1,71 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-brand-900">Stock en vivo</h1>
+    <p class="text-sm text-brand-700/70">Consulta consolidada de garrafas por depósito, camión o total del sistema.</p>
+  </div>
+
+  <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+    <div class="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-brand-700">Depósito / camión</span>
+        <select [ngModel]="depositoId()" (ngModelChange)="depositoId.set($event); consultarDeposito()"
+          class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
+          <option [ngValue]="null" disabled>Elegí un depósito…</option>
+          @for (d of depositos(); track d.id) {
+            <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_LABELS[d.tipo] }}</option>
+          }
+        </select>
+      </label>
+      <button (click)="consultarDeposito()" [disabled]="!depositoId() || cargando()"
+        class="rounded-lg border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-40">
+        Actualizar
+      </button>
+      <button (click)="consultarTotal()" [disabled]="cargando()"
+        class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-40">
+        Total del sistema
+      </button>
+    </div>
+  </section>
+
+  @if (cargando()) {
+    <p class="text-center text-sm text-brand-700/60">Consultando…</p>
+  }
+
+  @if (vista(); as v) {
+    <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
+      <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-semibold text-brand-900">{{ v.titulo }}</h2>
+        <span class="text-xs text-brand-700/60">Consultado: {{ v.consultadoEn | date: 'short' }}</span>
+      </div>
+
+      @if (v.items.length === 0) {
+        <p class="py-6 text-center text-sm text-brand-700/60">Sin stock registrado en esta ubicación.</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[480px] border-collapse text-sm">
+            <thead>
+              <tr class="border-b border-brand-200 text-left">
+                <th class="py-2 pr-3 font-semibold text-brand-700">Tipo</th>
+                @for (e of estados(); track e) {
+                  <th class="px-3 py-2 text-center font-semibold text-brand-700">{{ nombreEstado(e) }}</th>
+                }
+                <th class="px-3 py-2 text-center font-semibold text-brand-900">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of tipos(); track t) {
+                <tr class="border-b border-brand-100">
+                  <td class="py-2 pr-3 font-medium">{{ nombreGarrafa(t) }}</td>
+                  @for (e of estados(); track e) {
+                    <td class="px-3 py-2 text-center tabular-nums">{{ cantidad(t, e) }}</td>
+                  }
+                  <td class="px-3 py-2 text-center font-bold tabular-nums text-brand-900">{{ totalTipo(t) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>

@@ -2,11 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { replicateRxCollection, RxReplicationState } from 'rxdb/plugins/replication';
 import { RxDatabaseService } from './rx-database.service';
 import { ApiGarrafaService } from './api-garrafa.service';
+import { ApiDepositoService } from './api-deposito.service';
 import { ApiClienteService } from './api-cliente.service';
 import { ToastService } from './toast.service';
 import { PedidoDocType } from '../schemas/pedido.schema';
 import { ClienteDocType } from '../schemas/cliente.schema';
 import { GarrafaDocType } from '../schemas/garrafa.schema';
+import { DepositoDocType } from '../schemas/deposito.schema';
+import { depositoToLocal } from '../models/deposito.model';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, Subscription, interval } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -25,6 +28,7 @@ interface ReplicationCheckpoint {
 export class ReplicationService {
   private rxDb = inject(RxDatabaseService);
   private apiGarrafa = inject(ApiGarrafaService);
+  private apiDeposito = inject(ApiDepositoService);
   private apiCliente = inject(ApiClienteService);
   private toast = inject(ToastService);
   private http = inject(HttpClient);
@@ -41,6 +45,7 @@ export class ReplicationService {
     this.iniciada = true;
     this.iniciarReplicacionClientes();
     this.iniciarReplicacionGarrafas();
+    this.iniciarReplicacionDepositos();
     this.iniciarReplicacionPedidos();
     console.log('[ReplicationService] Replicación iniciada para todas las colecciones.');
     void this.reintentarPendientes();
@@ -231,13 +236,19 @@ export class ReplicationService {
         batchSize: 100,
         handler: async (lastCheckpoint, batchSize) => {
           try {
-            const respuesta = await this.apiGarrafa.listarTodas();
+            const respuesta = await this.apiGarrafa.listarTodas(false);
+            const existentes = await this.rxDb.garrafas.find().exec();
+            const precioPrevio = new Map<string, number>();
+            for (const d of existentes) {
+              const j = d.toJSON() as GarrafaDocType;
+              precioPrevio.set(j.id, j.precio ?? 0);
+            }
             const documents = respuesta.map((g) => ({
               id: String(g.id),
-              tipo: g.tipo,
+              codigo: g.codigo,
+              descripcion: g.descripcion,
               capacidadKg: g.capacidadKg,
-              precio: g.precio,
-              stockDisponible: g.stockDisponible,
+              precio: g.precio ?? precioPrevio.get(String(g.id)) ?? 0,
               activo: g.activo,
               updatedAt: new Date().toISOString(),
               _deleted: false as const,
@@ -266,6 +277,47 @@ export class ReplicationService {
     this.replicationStates.push(state);
   }
 
+
+
+  private iniciarReplicacionDepositos(): void {
+    const state = replicateRxCollection<DepositoDocType, ReplicationCheckpoint>({
+      collection: this.rxDb.depositos,
+      replicationIdentifier: 'depositos-pull-replication',
+      autoStart: true,
+      retryTime: 10_000,
+
+      pull: {
+        batchSize: 100,
+        handler: async (lastCheckpoint, batchSize) => {
+          try {
+            const respuesta = await this.apiDeposito.listar({ soloActivos: false });
+            const documents = respuesta.map((d) => ({
+              ...depositoToLocal(d),
+              _deleted: false as const,
+            }));
+
+            const checkpoint: ReplicationCheckpoint = documents.length > 0
+              ? { updatedAt: documents[documents.length - 1].updatedAt, id: documents[documents.length - 1].id }
+              : lastCheckpoint ?? { updatedAt: '', id: '' };
+
+            return { documents, checkpoint };
+          } catch (error: any) {
+            if (error.status === 0 || !navigator.onLine) {
+              console.warn('[ReplicationService] Dispositivo offline, pausa temporal en pull de depósitos.');
+              throw error;
+            }
+            console.error('[ReplicationService] Error al hacer pull de depósitos:', error);
+            throw error;
+          }
+        },
+      },
+
+      push: undefined,
+    });
+
+    this.registrarEventos(state, 'depositos');
+    this.replicationStates.push(state);
+  }
 
 
   private iniciarReplicacionPedidos(): void {
@@ -315,7 +367,7 @@ export class ReplicationService {
                 observaciones: p.observaciones ?? '',
                 sincronizado: true,
                 detalles: (p.detalles ?? []).map((d: any) => ({
-                  garrafaId: String(d.garrafaId),
+                  tipoGarrafaId: String(d.tipoGarrafaId ?? d.garrafaId),
                   cantidad: d.cantidad,
                   precioUnitario: d.precioUnitario,
                   subtotal: d.subtotal,
@@ -376,7 +428,7 @@ export class ReplicationService {
               direccionEntrega: p.direccionEntrega ?? '',
               urlFotoEvidencia: p.urlFotoEvidencia || undefined,
               detalles: p.detalles.map((d) => ({
-                garrafaId: Number(d.garrafaId),
+                tipoGarrafaId: Number(d.tipoGarrafaId),
                 cantidad: d.cantidad,
               })),
             });

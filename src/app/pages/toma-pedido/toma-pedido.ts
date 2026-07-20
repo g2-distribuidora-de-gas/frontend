@@ -70,23 +70,20 @@ export class TomaPedido {
     return this.cantidades()[g.id] ?? 0;
   }
 
-  protected stockDe(g: Garrafa): number {
-    return g.stockDisponible ?? Infinity;
+  /** El stock ahora vive en el módulo de depósitos/camiones; en la toma no hay tope. */
+  protected stockDe(_g: Garrafa): number {
+    return Infinity;
   }
 
-  protected sinStock(g: Garrafa): boolean {
-    return this.stockDe(g) <= 0;
+  protected sinStock(_g: Garrafa): boolean {
+    return false;
   }
 
   protected ajustar(g: Garrafa, delta: number): void {
-    const tope = this.stockDe(g);
     this.cantidades.update((c) => {
-      const nueva = Math.min(tope, Math.max(0, (c[g.id] ?? 0) + delta));
+      const nueva = Math.max(0, (c[g.id] ?? 0) + delta);
       return { ...c, [g.id]: nueva };
     });
-    if (delta > 0 && this.cantidadDe(g) >= tope) {
-      this.toast.error(`Sin stock suficiente de ${nombreGarrafa(g.tipo)}.`);
-    }
   }
 
   protected bloquearNoEnteros(e: KeyboardEvent): void {
@@ -95,8 +92,7 @@ export class TomaPedido {
 
   /** Toma el valor tipeado en el input, lo clampea al stock y lo refleja en la caja */
   protected setCantidad(g: Garrafa, el: HTMLInputElement): void {
-    const tope = this.stockDe(g);
-    const n = Math.min(tope, Math.max(0, Math.floor(Number(el.value) || 0)));
+    const n = Math.max(0, Math.floor(Number(el.value) || 0));
     el.value = String(n);
     this.cantidades.update((c) => ({ ...c, [g.id]: n }));
   }
@@ -317,9 +313,8 @@ export class TomaPedido {
         this.clienteId()!,
         cliente.direccion,
         this.items().map((i) => ({
-          garrafaId: i.garrafa.id,
-          // red de seguridad: nunca mandar más que el stock disponible
-          cantidad: Math.min(i.cantidad, i.garrafa.stockDisponible ?? i.cantidad),
+          tipoGarrafaId: i.garrafa.id,
+          cantidad: i.cantidad,
           precioUnitario: i.garrafa.precio,
         })),
         this.observaciones().trim(),

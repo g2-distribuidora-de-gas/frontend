@@ -5,7 +5,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { startWith } from 'rxjs/operators';
 import { EstadoPedido, ESTADO_LABELS, PedidoCompleto } from '../../models/pedido.model';
-import { nombreGarrafa, TipoGarrafa } from '../../models/garrafa.model';
+import { nombreGarrafa } from '../../models/garrafa.model';
 import { PedidoService } from '../../services/pedido.service';
 import { AuthService } from '../../services/auth.service';
 import { EstadoInfo } from '../../services/rx-database.service';

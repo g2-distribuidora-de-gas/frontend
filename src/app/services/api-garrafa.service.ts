@@ -1,34 +1,50 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Garrafa, GarrafaRequest, GarrafaResponse } from '../models/garrafa.model';
+import {Garrafa,TipoGarrafaStockRequest,TipoGarrafaStockResponse} from '../models/garrafa.model';
+import { EstadoGarrafa } from '../models/estado-garrafa.model';
 
 @Injectable({ providedIn: 'root' })
 export class ApiGarrafaService {
   private http = inject(HttpClient);
 
-  /** GET /api/garrafas */
-  async listarTodas(): Promise<GarrafaResponse[]> {
-    return firstValueFrom(this.http.get<GarrafaResponse[]>('/api/garrafas'));
+  async listarTodas(soloActivos = false): Promise<TipoGarrafaStockResponse[]> {
+    const params = new HttpParams().set('soloActivos', String(soloActivos));
+    return firstValueFrom(
+      this.http.get<TipoGarrafaStockResponse[]>('/api/tipos-garrafa-stock', { params }),
+    );
   }
 
-  /** POST /api/garrafas */
-  async crear(request: GarrafaRequest): Promise<GarrafaResponse> {
-    return firstValueFrom(this.http.post<GarrafaResponse>('/api/garrafas', request));
+  async crear(request: TipoGarrafaStockRequest): Promise<TipoGarrafaStockResponse> {
+    return firstValueFrom(
+      this.http.post<TipoGarrafaStockResponse>('/api/tipos-garrafa-stock', request),
+    );
   }
 
-  async actualizar(id: number, request: GarrafaRequest): Promise<GarrafaResponse> {
-    return firstValueFrom(this.http.put<GarrafaResponse>(`/api/garrafas/${id}`, request));
+  async actualizar(id: number, request: TipoGarrafaStockRequest): Promise<TipoGarrafaStockResponse> {
+    return firstValueFrom(
+      this.http.put<TipoGarrafaStockResponse>(`/api/tipos-garrafa-stock/${id}`, request),
+    );
   }
 
-  /** Convierte un GarrafaResponse del backend a modelo local (RxDB) */
-  static toLocal(resp: GarrafaResponse): Garrafa {
+  async cambiarEstado(id: number, activo: boolean): Promise<TipoGarrafaStockResponse> {
+    const params = new HttpParams().set('activo', String(activo));
+    return firstValueFrom(
+      this.http.patch<TipoGarrafaStockResponse>(`/api/tipos-garrafa-stock/${id}/estado`, null, { params }),
+    );
+  }
+
+  async listarEstados(): Promise<EstadoGarrafa[]> {
+    return firstValueFrom(this.http.get<EstadoGarrafa[]>('/api/tipos-garrafa-stock/estados'));
+  }
+
+  static toLocal(resp: TipoGarrafaStockResponse): Garrafa {
     return {
       id: String(resp.id),
-      tipo: resp.tipo,
+      codigo: resp.codigo,
+      descripcion: resp.descripcion,
       capacidadKg: resp.capacidadKg,
-      precio: resp.precio,
-      stockDisponible: resp.stockDisponible,
+      precio: resp.precio ?? 0,
       activo: resp.activo,
       updatedAt: new Date().toISOString(),
     };

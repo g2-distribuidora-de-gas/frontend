@@ -46,6 +46,24 @@ export const routes: Routes = [
     title: 'Garrafas | Distribuidora de Gas',
   },
   {
+    path: 'admin/depositos',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/depositos/depositos').then((m) => m.DepositosAdmin),
+    title: 'Depósitos | Distribuidora de Gas',
+  },
+  {
+    path: 'admin/stock',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/stock/stock').then((m) => m.StockAdmin),
+    title: 'Stock | Distribuidora de Gas',
+  },
+  {
+    path: 'admin/movimientos',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/movimientos/movimientos').then((m) => m.MovimientosAdmin),
+    title: 'Movimientos | Distribuidora de Gas',
+  },
+  {
     path: 'admin/rutas',
     canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
     loadComponent: () => import('./pages/admin/rutas/rutas').then((m) => m.RutasAdmin),
