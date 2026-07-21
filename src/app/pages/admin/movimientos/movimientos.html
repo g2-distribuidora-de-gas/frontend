@@ -7,278 +7,403 @@
   <div class="flex flex-wrap gap-2">
     @for (o of OPERACIONES; track o.id) {
       <button (click)="setOp(o.id)"
-        class="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-        [class]="op() === o.id ? 'bg-brand-500 text-white shadow-sm' : 'border border-brand-200 text-brand-700 hover:bg-brand-100'"
+        class="rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200"
+        [class]="op() === o.id ? 'bg-brand-600 text-white shadow-md ring-2 ring-brand-600/30' : 'bg-white border border-brand-200 text-brand-700 hover:bg-brand-50 hover:border-brand-300'"
       >{{ o.label }}</button>
     }
   </div>
 
-  <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
-    <div class="grid gap-3 sm:grid-cols-2">
+  <section class="rounded-2xl border border-brand-200 bg-white p-5 shadow-sm sm:p-6">
+    <div class="space-y-5">
+      <!-- Sección Origen/Destino -->
+      <div class="rounded-xl border border-brand-100 bg-brand-50/30 p-4">
+        <h3 class="mb-3 text-sm font-semibold text-brand-900">Ubicaciones</h3>
+        <div class="grid gap-4 sm:grid-cols-2">
+          @if (op() === 'TRANSFERENCIA' || op() === 'REPARACION_INICIO') {
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Depósito origen <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['depositoOrigenId']" (ngModelChange)="setCampo('depositoOrigenId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Buscar y elegir…</option>
+                @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
+              </select>
+            </label>
+          }
 
-      @if (op() === 'TRANSFERENCIA' || op() === 'REPARACION_INICIO') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Depósito origen *</span>
-          <select [ngModel]="f()['depositoOrigenId']" (ngModelChange)="setCampo('depositoOrigenId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
-          </select>
-        </label>
-      }
+          @if (op() === 'TRANSFERENCIA' || op() === 'DEVOLUCION') {
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Depósito destino <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['depositoDestinoId']" (ngModelChange)="setCampo('depositoDestinoId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Buscar y elegir…</option>
+                @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
+              </select>
+            </label>
+          }
 
-      @if (op() === 'TRANSFERENCIA') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Depósito destino *</span>
-          <select [ngModel]="f()['depositoDestinoId']" (ngModelChange)="setCampo('depositoDestinoId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
-          </select>
-        </label>
-      }
+          @if (op() === 'CARGA_CAMION' || op() === 'DESCARGA_CAMION') {
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Camión <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['camionId']" (ngModelChange)="setCampo('camionId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Buscar camión…</option>
+                @for (d of camiones(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}@if (d.repartidorNombre) { · {{ d.repartidorNombre }} }</option> }
+              </select>
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Depósito central <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['depositoCentralId']" (ngModelChange)="setCampo('depositoCentralId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Buscar depósito…</option>
+                @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
+              </select>
+            </label>
+          }
 
-      @if (op() === 'CARGA_CAMION' || op() === 'DESCARGA_CAMION') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Camión *</span>
-          <select [ngModel]="f()['camionId']" (ngModelChange)="setCampo('camionId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (d of camiones(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}@if (d.repartidorNombre) { · {{ d.repartidorNombre }} }</option> }
-          </select>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Depósito central *</span>
-          <select [ngModel]="f()['depositoCentralId']" (ngModelChange)="setCampo('depositoCentralId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
-          </select>
-        </label>
-      }
+          @if (op() === 'ROTURA' || op() === 'AJUSTE') {
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Depósito <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['depositoId']" (ngModelChange)="setCampo('depositoId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Buscar depósito…</option>
+                @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
+              </select>
+            </label>
+          }
 
-      @if (op() === 'DEVOLUCION') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Depósito destino *</span>
-          <select [ngModel]="f()['depositoDestinoId']" (ngModelChange)="setCampo('depositoDestinoId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
-          </select>
-        </label>
-      }
-      @if (op() === 'ROTURA' || op() === 'AJUSTE') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Depósito *</span>
-          <select [ngModel]="f()['depositoId']" (ngModelChange)="setCampo('depositoId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (d of depositos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }} · {{ TIPO_DEP_LABELS[d.tipo] }}</option> }
-          </select>
-        </label>
-      }
+          @if (op() === 'REPARACION_INICIO') {
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Taller destino <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['tallerDestinoId']" (ngModelChange)="setCampo('tallerDestinoId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Elegí un taller…</option>
+                @for (d of talleres(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}</option> }
+              </select>
+            </label>
+          }
+          @if (op() === 'REPARACION_FIN') {
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Taller <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['tallerId']" (ngModelChange)="setCampo('tallerId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Elegí un taller…</option>
+                @for (d of talleres(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}</option> }
+              </select>
+            </label>
+          }
+        </div>
+      </div>
 
-      @if (op() === 'REPARACION_INICIO') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Taller destino *</span>
-          <select [ngModel]="f()['tallerDestinoId']" (ngModelChange)="setCampo('tallerDestinoId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí un taller…</option>
-            @for (d of talleres(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}</option> }
-          </select>
-        </label>
-      }
-      @if (op() === 'REPARACION_FIN') {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Taller *</span>
-          <select [ngModel]="f()['tallerId']" (ngModelChange)="setCampo('tallerId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí un taller…</option>
-            @for (d of talleres(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}</option> }
-          </select>
-        </label>
-      }
-
-      @if (!usaItems()) {
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Tipo de garrafa *</span>
-          <select [ngModel]="f()['tipoGarrafaId']" (ngModelChange)="setCampo('tipoGarrafaId', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-            <option [ngValue]="undefined" disabled>Elegí…</option>
-            @for (t of tipos(); track t.id) { <option [ngValue]="+t.id">{{ t.descripcion }} ({{ t.codigo }})</option> }
-          </select>
-        </label>
-
-        @if (op() === 'TRANSFERENCIA' || op() === 'DEVOLUCION' || op() === 'ROTURA' || op() === 'AJUSTE') {
-          <label class="block text-sm">
-            <span class="mb-1 block font-medium text-brand-700">Estado *</span>
-            <select [ngModel]="f()['estadoGarrafaId']" (ngModelChange)="setCampo('estadoGarrafaId', $event)"
-              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-              <option [ngValue]="undefined" disabled>Elegí…</option>
-              @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
-            </select>
-          </label>
-        }
-        @if (op() === 'REPARACION_INICIO') {
-          <label class="block text-sm">
-            <span class="mb-1 block font-medium text-brand-700">Estado origen *</span>
-            <select [ngModel]="f()['estadoOrigenId']" (ngModelChange)="setCampo('estadoOrigenId', $event)"
-              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-              <option [ngValue]="undefined" disabled>Elegí…</option>
-              @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
-            </select>
-          </label>
-        }
-        @if (op() === 'REPARACION_FIN') {
-          <label class="block text-sm">
-            <span class="mb-1 block font-medium text-brand-700">Estado final * (LLENA o FUERA_SERVICIO)</span>
-            <select [ngModel]="f()['estadoFinalId']" (ngModelChange)="setCampo('estadoFinalId', $event)"
-              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-              <option [ngValue]="undefined" disabled>Elegí…</option>
-              @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
-            </select>
-          </label>
-        }
-
-        <label class="block text-sm">
-          <span class="mb-1 block font-medium text-brand-700">Cantidad *</span>
-          <input type="number" min="1" step="1" inputmode="numeric"
-            [ngModel]="f()['cantidad']" (ngModelChange)="setCampo('cantidad', $event)"
-            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400" />
-        </label>
-
-        @if (op() === 'DEVOLUCION') {
-          <label class="block text-sm">
-            <span class="mb-1 block font-medium text-brand-700">ID de pedido (opcional)</span>
-            <input type="number" min="1" [ngModel]="f()['pedidoId']" (ngModelChange)="setCampo('pedidoId', $event)"
-              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400" />
-          </label>
-        }
-        @if (op() === 'AJUSTE') {
-          <label class="block text-sm">
-            <span class="mb-1 block font-medium text-brand-700">Tipo de ajuste *</span>
-            <select [ngModel]="f()['tipoAjuste']" (ngModelChange)="setCampo('tipoAjuste', $event)"
-              class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-              <option value="ENTRADA">Entrada (sumar stock)</option>
-              <option value="SALIDA">Salida (restar stock)</option>
-            </select>
-          </label>
-        }
-      }
-
-      @if (usaItems()) {
-        <div class="sm:col-span-2">
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-sm font-medium text-brand-700">Ítems *</span>
-            <button (click)="agregarItem()" class="rounded-full border border-brand-300 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">+ Ítem</button>
-          </div>
-          <div class="space-y-2">
-            @for (it of items(); track $index) {
-              <div class="grid items-center gap-2" [class]="itemsConEstado() ? 'sm:grid-cols-[1fr_1fr_100px_40px]' : 'sm:grid-cols-[1fr_120px_40px]'">
-                <select [ngModel]="it.tipoGarrafaId" (ngModelChange)="setItem($index, 'tipoGarrafaId', $event)"
-                  class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-                  <option [ngValue]="null" disabled>Tipo…</option>
-                  @for (t of tipos(); track t.id) { <option [ngValue]="+t.id">{{ t.descripcion }} ({{ t.codigo }})</option> }
-                </select>
-                @if (itemsConEstado()) {
-                  <select [ngModel]="it.estadoGarrafaId" (ngModelChange)="setItem($index, 'estadoGarrafaId', $event)"
-                    class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400">
-                    <option [ngValue]="null" disabled>Estado…</option>
-                    @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
-                  </select>
+      <!-- Sección Disponibilidad de Stock -->
+      @if (stockOrigen() || stockDestino() || cargandoStockO() || cargandoStockD()) {
+        <div class="rounded-xl border border-brand-100 bg-brand-50/20 p-4 shadow-sm">
+          <h3 class="mb-3 text-sm font-semibold text-brand-900 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="text-brand-500" viewBox="0 0 16 16"><path d="M10.854 8.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708 0z"/><path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/></svg>
+            Disponibilidad de Stock
+          </h3>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <!-- Origen -->
+            @if (idOrigen()) {
+              <div class="rounded-lg border border-brand-200 bg-white p-3">
+                <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-brand-700/70">Stock Origen</h4>
+                @if (cargandoStockO()) {
+                  <div class="animate-pulse space-y-2">
+                    <div class="h-3 w-3/4 rounded bg-brand-100"></div>
+                    <div class="h-3 w-1/2 rounded bg-brand-100"></div>
+                  </div>
+                } @else if (stockOrigen()?.length) {
+                  <ul class="space-y-1.5">
+                    @for (s of stockOrigen(); track s.tipoGarrafa + s.estado) {
+                      <li class="flex items-center justify-between text-sm">
+                        <span class="text-brand-700/90">{{ s.tipoGarrafa }} - {{ nombreEstado(s.estado) }}</span>
+                        <span class="font-bold text-brand-900">{{ s.cantidad }}</span>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="text-sm italic text-brand-700/50">Sin stock registrado en origen.</p>
                 }
-                <input type="number" min="1" step="1" placeholder="Cant." [ngModel]="it.cantidad" (ngModelChange)="setItem($index, 'cantidad', $event)"
-                  class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400" />
-                <button (click)="quitarItem($index)" [disabled]="items().length === 1"
-                  class="grid h-9 w-9 place-items-center rounded-full border border-brand-200 text-brand-700/60 hover:bg-red-50 hover:text-red-600 disabled:opacity-30">✕</button>
+              </div>
+            }
+            
+            <!-- Destino -->
+            @if (idDestino()) {
+              <div class="rounded-lg border border-brand-200 bg-white p-3">
+                <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-brand-700/70">Stock Destino</h4>
+                @if (cargandoStockD()) {
+                  <div class="animate-pulse space-y-2">
+                    <div class="h-3 w-3/4 rounded bg-brand-100"></div>
+                    <div class="h-3 w-1/2 rounded bg-brand-100"></div>
+                  </div>
+                } @else if (stockDestino()?.length) {
+                  <ul class="space-y-1.5">
+                    @for (s of stockDestino(); track s.tipoGarrafa + s.estado) {
+                      <li class="flex items-center justify-between text-sm">
+                        <span class="text-brand-700/90">{{ s.tipoGarrafa }} - {{ nombreEstado(s.estado) }}</span>
+                        <span class="font-bold text-brand-900">{{ s.cantidad }}</span>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="text-sm italic text-brand-700/50">Sin stock registrado en destino.</p>
+                }
               </div>
             }
           </div>
         </div>
       }
 
-      <label class="block text-sm sm:col-span-2">
-        <span class="mb-1 block font-medium text-brand-700">
-          Observaciones @if (op() === 'ROTURA' || op() === 'AJUSTE') { <span class="text-red-500">*</span> }
-        </span>
-        <textarea rows="2" [ngModel]="f()['observaciones']" (ngModelChange)="setCampo('observaciones', $event)"
-          class="w-full resize-none rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"></textarea>
-      </label>
+      <!-- Sección Detalle (Cantidades/Ítems) -->
+      <div class="rounded-xl border border-brand-100 bg-white p-4 shadow-sm">
+        <h3 class="mb-3 text-sm font-semibold text-brand-900">Detalle de Garrafas</h3>
+        
+        @if (!usaItems()) {
+          <div class="grid gap-4 sm:grid-cols-3">
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Tipo de garrafa <span class="text-red-500">*</span></span>
+              <select [ngModel]="f()['tipoGarrafaId']" (ngModelChange)="setCampo('tipoGarrafaId', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option [ngValue]="undefined" disabled>Elegí…</option>
+                @for (t of tipos(); track t.id) { <option [ngValue]="+t.id">{{ t.descripcion }} ({{ t.codigo }})</option> }
+              </select>
+            </label>
+
+            @if (op() === 'TRANSFERENCIA' || op() === 'DEVOLUCION' || op() === 'ROTURA' || op() === 'AJUSTE') {
+              <label class="block text-sm">
+                <span class="mb-1 block font-medium text-brand-700">Estado <span class="text-red-500">*</span></span>
+                <select [ngModel]="f()['estadoGarrafaId']" (ngModelChange)="setCampo('estadoGarrafaId', $event)"
+                  class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option [ngValue]="undefined" disabled>Elegí…</option>
+                  @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
+                </select>
+              </label>
+            }
+            @if (op() === 'REPARACION_INICIO') {
+              <label class="block text-sm">
+                <span class="mb-1 block font-medium text-brand-700">Estado origen <span class="text-red-500">*</span></span>
+                <select [ngModel]="f()['estadoOrigenId']" (ngModelChange)="setCampo('estadoOrigenId', $event)"
+                  class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option [ngValue]="undefined" disabled>Elegí…</option>
+                  @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
+                </select>
+              </label>
+            }
+            @if (op() === 'REPARACION_FIN') {
+              <label class="block text-sm">
+                <span class="mb-1 block font-medium text-brand-700">Estado final <span class="text-red-500">*</span></span>
+                <select [ngModel]="f()['estadoFinalId']" (ngModelChange)="setCampo('estadoFinalId', $event)"
+                  class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option [ngValue]="undefined" disabled>LLENA o FUERA_SERVICIO…</option>
+                  @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
+                </select>
+              </label>
+            }
+
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-brand-700">Cantidad <span class="text-red-500">*</span></span>
+              <input type="number" min="1" step="1" inputmode="numeric"
+                [ngModel]="f()['cantidad']" (ngModelChange)="setCampo('cantidad', $event)"
+                class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
+            </label>
+
+            @if (op() === 'DEVOLUCION') {
+              <label class="block text-sm">
+                <span class="mb-1 block font-medium text-brand-700">ID de pedido (opcional)</span>
+                <input type="number" min="1" [ngModel]="f()['pedidoId']" (ngModelChange)="setCampo('pedidoId', $event)"
+                  class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
+              </label>
+            }
+            @if (op() === 'AJUSTE') {
+              <label class="block text-sm">
+                <span class="mb-1 block font-medium text-brand-700">Tipo de ajuste <span class="text-red-500">*</span></span>
+                <select [ngModel]="f()['tipoAjuste']" (ngModelChange)="setCampo('tipoAjuste', $event)"
+                  class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option value="ENTRADA">Entrada (sumar stock)</option>
+                  <option value="SALIDA">Salida (restar stock)</option>
+                </select>
+              </label>
+            }
+          </div>
+        }
+
+        @if (usaItems()) {
+          <div class="space-y-3">
+            @for (it of items(); track $index) {
+              <div class="grid items-center gap-2" [class]="itemsConEstado() ? 'grid-cols-[1fr_1fr_100px_40px]' : 'grid-cols-[1fr_120px_40px]'">
+                <select [ngModel]="it.tipoGarrafaId" (ngModelChange)="setItem($index, 'tipoGarrafaId', $event)"
+                  class="rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option [ngValue]="null" disabled>Tipo de garrafa…</option>
+                  @for (t of tipos(); track t.id) { <option [ngValue]="+t.id">{{ t.descripcion }} ({{ t.codigo }})</option> }
+                </select>
+                @if (itemsConEstado()) {
+                  <select [ngModel]="it.estadoGarrafaId" (ngModelChange)="setItem($index, 'estadoGarrafaId', $event)"
+                    class="rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                    <option [ngValue]="null" disabled>Estado…</option>
+                    @for (e of estados(); track e.id) { <option [ngValue]="e.id">{{ nombreEstado(e.codigo) }}</option> }
+                  </select>
+                }
+                <input type="number" min="1" step="1" placeholder="Cant." [ngModel]="it.cantidad" (ngModelChange)="setItem($index, 'cantidad', $event)"
+                  class="rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
+                <button (click)="quitarItem($index)" [disabled]="items().length === 1"
+                  class="grid h-10 w-10 place-items-center rounded-lg border border-brand-200 text-brand-700/60 transition-colors hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-30">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                </button>
+              </div>
+            }
+            <div class="flex items-center justify-between border-t border-brand-100 pt-3">
+              <button (click)="agregarItem()" class="flex items-center gap-1 rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                Agregar Ítem
+              </button>
+              <div class="text-sm font-medium text-brand-900 bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-100">
+                Total garrafas: <span class="font-bold text-brand-600">{{ totalGarrafas() }}</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Sección Final -->
+      <div>
+        <label class="block text-sm">
+          <span class="mb-1 block font-medium text-brand-700">
+            Observaciones @if (op() === 'ROTURA' || op() === 'AJUSTE') { <span class="text-red-500">*</span> }
+          </span>
+          <textarea rows="2" [ngModel]="f()['observaciones']" (ngModelChange)="setCampo('observaciones', $event)" placeholder="Notas sobre el movimiento..."
+            class="w-full resize-none rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"></textarea>
+        </label>
+      </div>
     </div>
 
     @if (op() === 'AJUSTE' && !esSuperAdmin()) {
-      <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">Los ajustes de inventario requieren rol SUPER_ADMIN.</p>
+      <p class="mt-4 flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 border border-amber-200">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
+        Los ajustes de inventario requieren rol SUPER_ADMIN.
+      </p>
     }
 
-    <button (click)="ejecutar()" [disabled]="enviando()"
-      class="mt-4 rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600 disabled:opacity-40">
-      {{ enviando() ? 'Registrando…' : 'Registrar movimiento' }}
-    </button>
+    <!-- Resumen y Submit -->
+    <div class="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-brand-50 p-4 border border-brand-100">
+      <div class="flex-1">
+        @if (resumenOp()) {
+          <p class="text-sm font-medium text-brand-800 flex items-start gap-2">
+            <svg class="mt-0.5 text-brand-500 shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/></svg>
+            {{ resumenOp() }}
+          </p>
+        } @else {
+          <p class="text-sm text-brand-700/60 italic">Completá los campos para ver el resumen del movimiento.</p>
+        }
+      </div>
+      <button (click)="ejecutar()" [disabled]="enviando() || (!resumenOp() && !usaItems())"
+        class="w-full sm:w-auto shrink-0 rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+        @if (enviando()) {
+          <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          Registrando…
+        } @else {
+          Registrar movimiento
+        }
+      </button>
+    </div>
   </section>
 
   <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
-    <div class="mb-3 flex flex-wrap items-end gap-3">
-      <h2 class="mr-auto font-semibold text-brand-900">Historial</h2>
+    <div class="mb-4 flex flex-wrap items-end gap-3">
+      <h2 class="mr-auto text-lg font-semibold text-brand-900">Historial de movimientos</h2>
       <label class="block text-sm">
         <span class="mb-1 block text-xs font-medium text-brand-700/70">Depósito</span>
         <select [ngModel]="filtroDeposito()" (ngModelChange)="filtroDeposito.set($event)"
-          class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-400">
-          <option [ngValue]="null">Todos</option>
+          class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+          <option [ngValue]="null">Todos los depósitos</option>
           @for (d of depositos(); track d.id) { <option [ngValue]="+d.id">{{ d.nombre }}</option> }
         </select>
       </label>
       <label class="block text-sm">
         <span class="mb-1 block text-xs font-medium text-brand-700/70">Tipo</span>
         <select [ngModel]="filtroTipoMov()" (ngModelChange)="filtroTipoMov.set($event)"
-          class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-400">
-          <option value="">Todos</option>
+          class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+          <option value="">Todos los tipos</option>
           @for (m of TIPOS_MOV; track m) { <option [value]="m">{{ TIPO_MOV_LABELS[m] }}</option> }
         </select>
       </label>
       <button (click)="cargarHistorial(0)" [disabled]="cargandoHist()"
-        class="rounded-lg border border-brand-300 px-4 py-1.5 text-sm font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-40">
+        class="rounded-lg border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm transition-colors hover:bg-brand-50 focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 disabled:opacity-50">
         Filtrar
       </button>
     </div>
 
-    @if (historial().length === 0) {
-      <p class="py-6 text-center text-sm text-brand-700/60">
-        Sin movimientos para mostrar (o requiere rol ADMIN / conexión).
-      </p>
+    @if (historial().length === 0 && !cargandoHist()) {
+      <div class="flex flex-col items-center justify-center py-10 px-4 text-center">
+        <div class="mb-3 rounded-full bg-brand-50 p-3 text-brand-300">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16"><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/><path d="M4.603 14.087a.81.81 0 0 1-.438-.42c1.75-2.029 4.195-3.325 6.945-3.325v1.258c-2.4 0-4.646 1.096-6.191 2.872a.81.81 0 0 1-.316-.385zm3.844-3.79c1.077 0 2.102.327 2.97.902v1.442a5.753 5.753 0 0 0-2.97-.844c-1.229 0-2.383.39-3.327 1.059.088-.582.4-1.127.915-1.542.75-.605 1.702-.957 2.412-1.017z"/></svg>
+        </div>
+        <h3 class="text-sm font-medium text-brand-900">No hay movimientos</h3>
+        <p class="mt-1 text-sm text-brand-700/60 max-w-sm">No se encontraron movimientos de stock con los filtros actuales o necesitas rol de ADMIN.</p>
+      </div>
     } @else {
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[720px] border-collapse text-sm">
-          <thead>
-            <tr class="border-b border-brand-200 text-left text-brand-700">
-              <th class="py-2 pr-3 font-semibold">Fecha</th>
-              <th class="px-2 py-2 font-semibold">Tipo</th>
-              <th class="px-2 py-2 font-semibold">Garrafa</th>
-              <th class="px-2 py-2 text-center font-semibold">Cant.</th>
-              <th class="px-2 py-2 font-semibold">Origen → Destino</th>
-              <th class="px-2 py-2 font-semibold">Usuario</th>
+      <div class="overflow-x-auto rounded-xl border border-brand-100 bg-white">
+        <table class="w-full min-w-[800px] border-collapse text-sm text-left">
+          <thead class="bg-brand-50/50">
+            <tr class="border-b border-brand-200 text-brand-700">
+              <th class="py-3 px-4 font-semibold">Fecha</th>
+              <th class="py-3 px-4 font-semibold">Tipo</th>
+              <th class="py-3 px-4 font-semibold">Garrafa</th>
+              <th class="py-3 px-4 text-center font-semibold">Cant.</th>
+              <th class="py-3 px-4 font-semibold">Origen → Destino</th>
+              <th class="py-3 px-4 font-semibold">Usuario</th>
             </tr>
           </thead>
-          <tbody>
-            @for (m of historial(); track m.id) {
-              <tr class="border-b border-brand-100">
-                <td class="py-2 pr-3 whitespace-nowrap text-brand-700/80">{{ m.fecha | date: 'short' }}</td>
-                <td class="px-2 py-2">{{ TIPO_MOV_LABELS[m.tipoMovimiento] }}</td>
-                <td class="px-2 py-2">{{ nombreGarrafa(m.tipoGarrafa?.codigo) }}</td>
-                <td class="px-2 py-2 text-center font-semibold tabular-nums">{{ m.cantidad }}</td>
-                <td class="px-2 py-2 text-brand-700/80">{{ depNombre(m.depositoOrigen) }} → {{ depNombre(m.depositoDestino) }}</td>
-                <td class="px-2 py-2 text-brand-700/80">{{ m.usuario?.nombre ?? '—' }}</td>
-              </tr>
+          <tbody class="divide-y divide-brand-100">
+            @if (cargandoHist()) {
+              @for (i of [1,2,3,4,5]; track i) {
+                <tr class="animate-pulse">
+                  <td class="py-3 px-4"><div class="h-4 w-24 rounded bg-brand-100"></div></td>
+                  <td class="py-3 px-4"><div class="h-6 w-32 rounded-full bg-brand-100"></div></td>
+                  <td class="py-3 px-4"><div class="h-4 w-20 rounded bg-brand-100"></div></td>
+                  <td class="py-3 px-4 text-center"><div class="mx-auto h-4 w-8 rounded bg-brand-100"></div></td>
+                  <td class="py-3 px-4"><div class="h-4 w-40 rounded bg-brand-100"></div></td>
+                  <td class="py-3 px-4"><div class="h-4 w-24 rounded bg-brand-100"></div></td>
+                </tr>
+              }
+            } @else {
+              @for (m of historial(); track m.id) {
+                <tr class="hover:bg-brand-50/30 transition-colors">
+                  <td class="py-3 px-4 whitespace-nowrap text-brand-700/80">{{ m.fecha | date: 'short' }}</td>
+                  <td class="py-3 px-4">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
+                          [class]="getBadgeColor(m.tipoMovimiento)">
+                      {{ TIPO_MOV_LABELS[m.tipoMovimiento] }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 font-medium text-brand-800">{{ nombreGarrafa(m.tipoGarrafa?.codigo) }}</td>
+                  <td class="py-3 px-4 text-center font-bold tabular-nums text-brand-900">{{ m.cantidad }}</td>
+                  <td class="py-3 px-4 text-brand-700/80 flex items-center gap-1.5">
+                    <span class="font-medium" [title]="depNombre(m.depositoOrigen)">{{ depNombre(m.depositoOrigen) }}</span>
+                    <span class="text-brand-300">→</span>
+                    <span class="font-medium" [title]="depNombre(m.depositoDestino)">{{ depNombre(m.depositoDestino) }}</span>
+                  </td>
+                  <td class="py-3 px-4 text-brand-700/80">{{ m.usuario?.nombre ?? '—' }}</td>
+                </tr>
+              }
             }
           </tbody>
         </table>
       </div>
-      <div class="mt-3 flex items-center justify-between text-sm">
-        <button (click)="paginaAnterior()" [disabled]="page() === 0"
-          class="rounded-lg border border-brand-200 px-3 py-1.5 font-medium text-brand-700 hover:bg-brand-100 disabled:opacity-30">Anterior</button>
-        <span class="text-brand-700/70">Página {{ page() + 1 }} de {{ totalPages() }}</span>
-        <button (click)="paginaSiguiente()" [disabled]="page() + 1 >= totalPages()"
-          class="rounded-lg border border-brand-200 px-3 py-1.5 font-medium text-brand-700 hover:bg-brand-100 disabled:opacity-30">Siguiente</button>
-      </div>
+      
+      @if (!cargandoHist() && totalPages() > 1) {
+        <div class="mt-4 flex items-center justify-between text-sm">
+          <button (click)="paginaAnterior()" [disabled]="page() === 0"
+            class="flex items-center gap-1 rounded-lg border border-brand-200 px-3 py-2 font-medium text-brand-700 transition-colors hover:bg-brand-50 focus:ring-2 focus:ring-brand-500 disabled:opacity-40">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+            Anterior
+          </button>
+          <span class="font-medium text-brand-700/70 bg-brand-50 px-3 py-1.5 rounded-lg">Página {{ page() + 1 }} de {{ totalPages() }}</span>
+          <button (click)="paginaSiguiente()" [disabled]="page() + 1 >= totalPages()"
+            class="flex items-center gap-1 rounded-lg border border-brand-200 px-3 py-2 font-medium text-brand-700 transition-colors hover:bg-brand-50 focus:ring-2 focus:ring-brand-500 disabled:opacity-40">
+            Siguiente
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+          </button>
+        </div>
+      }
     }
   </section>
 </div>

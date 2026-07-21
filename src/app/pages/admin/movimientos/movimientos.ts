@@ -1,16 +1,18 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CatalogoService } from '../../../services/catalogo.service';
 import { ApiGarrafaService } from '../../../services/api-garrafa.service';
 import { ApiMovimientoService } from '../../../services/api-movimiento.service';
+import { ApiStockService } from '../../../services/api-stock.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
 import { Deposito, TIPO_DEPOSITO_LABELS } from '../../../models/deposito.model';
 import { Garrafa, nombreGarrafa } from '../../../models/garrafa.model';
 import { EstadoGarrafa, nombreEstadoGarrafa } from '../../../models/estado-garrafa.model';
-import {MovimientoResponse,TIPO_MOVIMIENTO_LABELS,TipoMovimiento} from '../../../models/movimiento.model';
+import { MovimientoResponse, TIPO_MOVIMIENTO_LABELS, TipoMovimiento } from '../../../models/movimiento.model';
+import { StockItem } from '../../../models/stock.model';
 
 type Operacion =
   | 'TRANSFERENCIA'
@@ -37,6 +39,7 @@ export class MovimientosAdmin implements OnInit {
   private catalogo = inject(CatalogoService);
   private apiGarrafa = inject(ApiGarrafaService);
   private apiMov = inject(ApiMovimientoService);
+  private apiStock = inject(ApiStockService);
   private auth = inject(AuthService);
   private toast = inject(ToastService);
 
@@ -71,6 +74,138 @@ export class MovimientosAdmin implements OnInit {
   protected f = signal<Record<string, any>>({});
   protected items = signal<ItemLinea[]>([{ tipoGarrafaId: null, estadoGarrafaId: null, cantidad: null }]);
 
+  protected idOrigen = computed(() => {
+    const op = this.op();
+    const f = this.f();
+    switch (op) {
+      case 'TRANSFERENCIA': return f['depositoOrigenId'];
+      case 'CARGA_CAMION': return f['depositoCentralId'];
+      case 'DESCARGA_CAMION': return f['camionId'];
+      case 'ROTURA': return f['depositoId'];
+      case 'AJUSTE': return f['depositoId'];
+      case 'REPARACION_INICIO': return f['depositoOrigenId'];
+      case 'REPARACION_FIN': return f['tallerId'];
+      default: return null;
+    }
+  });
+
+  protected idDestino = computed(() => {
+    const op = this.op();
+    const f = this.f();
+    switch (op) {
+      case 'TRANSFERENCIA': return f['depositoDestinoId'];
+      case 'CARGA_CAMION': return f['camionId'];
+      case 'DESCARGA_CAMION': return f['depositoCentralId'];
+      case 'DEVOLUCION': return f['depositoDestinoId'];
+      case 'REPARACION_INICIO': return f['tallerDestinoId'];
+      default: return null;
+    }
+  });
+
+  protected stockOrigen = signal<StockItem[] | null>(null);
+  protected stockDestino = signal<StockItem[] | null>(null);
+  protected cargandoStockO = signal(false);
+  protected cargandoStockD = signal(false);
+
+  constructor() {
+    effect(() => {
+      const id = this.idOrigen();
+      if (id) {
+        this.cargandoStockO.set(true);
+        this.getStockParaId(id).then(s => {
+          this.stockOrigen.set(s);
+          this.cargandoStockO.set(false);
+        });
+      } else {
+        this.stockOrigen.set(null);
+      }
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      const id = this.idDestino();
+      if (id) {
+        this.cargandoStockD.set(true);
+        this.getStockParaId(id).then(s => {
+          this.stockDestino.set(s);
+          this.cargandoStockD.set(false);
+        });
+      } else {
+        this.stockDestino.set(null);
+      }
+    }, { allowSignalWrites: true });
+  }
+
+  private async getStockParaId(id: number | string): Promise<StockItem[] | null> {
+    const dep = this.depositos().find(d => String(d.id) === String(id));
+    if (!dep) return null;
+    try {
+      const res = dep.tipo === 'CAMION' 
+        ? await this.apiStock.getStockCamion(Number(id))
+        : await this.apiStock.getStockDeposito(Number(id));
+      return res.stock;
+    } catch {
+      return null;
+    }
+  }
+
+  protected usaItems = computed(() => this.op() === 'CARGA_CAMION' || this.op() === 'DESCARGA_CAMION');
+  protected itemsConEstado = computed(() => this.op() === 'DESCARGA_CAMION');
+
+  protected totalGarrafas = computed(() => {
+    return this.items().reduce((acc, curr) => acc + (Number(curr.cantidad) || 0), 0);
+  });
+
+  protected resumenOp = computed(() => {
+    const op = this.op();
+    const f = this.f();
+    const cantForm = Number(f['cantidad']) || 0;
+    const total = this.usaItems() ? this.totalGarrafas() : cantForm;
+    if (!total) return null;
+
+    const getDep = (id: any) => this.depositos().find(d => String(d.id) === String(id))?.nombre || '...';
+    
+    switch (op) {
+      case 'TRANSFERENCIA':
+        return `Vas a transferir ${total} garrafas de ${getDep(f['depositoOrigenId'])} a ${getDep(f['depositoDestinoId'])}.`;
+      case 'CARGA_CAMION':
+        return `Vas a cargar ${total} garrafas desde ${getDep(f['depositoCentralId'])} al camión ${getDep(f['camionId'])}.`;
+      case 'DESCARGA_CAMION':
+        return `Vas a descargar ${total} garrafas del camión ${getDep(f['camionId'])} en ${getDep(f['depositoCentralId'])}.`;
+      case 'DEVOLUCION':
+        return `Vas a registrar la devolución de ${total} garrafas en ${getDep(f['depositoDestinoId'])}.`;
+      case 'ROTURA':
+        return `Vas a reportar ${total} garrafas rotas en ${getDep(f['depositoId'])}.`;
+      case 'REPARACION_INICIO':
+        return `Vas a enviar ${total} garrafas a reparar desde ${getDep(f['depositoOrigenId'])} al taller ${getDep(f['tallerDestinoId'])}.`;
+      case 'REPARACION_FIN':
+        return `Vas a retornar ${total} garrafas reparadas desde el taller ${getDep(f['tallerId'])}.`;
+      case 'AJUSTE':
+        return `Vas a hacer un ajuste de ${f['tipoAjuste'] === 'SALIDA' ? 'salida (-)' : 'entrada (+)'} de ${total} garrafas en ${getDep(f['depositoId'])}.`;
+      default:
+        return null;
+    }
+  });
+
+  protected getBadgeColor(tipo: TipoMovimiento): string {
+    switch (tipo) {
+      case 'AJUSTE_ENTRADA':
+      case 'DEVOLUCION':
+        return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'AJUSTE_SALIDA':
+      case 'ROTURA':
+        return 'bg-rose-100 text-rose-700 border-rose-200';
+      case 'TRANSFERENCIA':
+      case 'CARGA_CAMION':
+      case 'DESCARGA_CAMION':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'REPARACION_INICIO':
+      case 'REPARACION_FIN':
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  }
+
   protected historial = signal<MovimientoResponse[]>([]);
   protected page = signal(0);
   protected totalPages = signal(0);
@@ -97,9 +232,6 @@ export class MovimientosAdmin implements OnInit {
   protected setCampo(campo: string, valor: any): void {
     this.f.update((f) => ({ ...f, [campo]: valor }));
   }
-
-  protected usaItems = computed(() => this.op() === 'CARGA_CAMION' || this.op() === 'DESCARGA_CAMION');
-  protected itemsConEstado = computed(() => this.op() === 'DESCARGA_CAMION');
 
   protected agregarItem(): void {
     this.items.update((it) => [...it, { tipoGarrafaId: null, estadoGarrafaId: null, cantidad: null }]);
@@ -273,3 +405,4 @@ export class MovimientosAdmin implements OnInit {
     return d?.nombre ?? '—';
   }
 }
+
