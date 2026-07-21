@@ -18,6 +18,7 @@
           "builder": "@angular/build:application",
           "options": {
             "allowedCommonJsDependencies": ["ajv", "ajv-formats", "leaflet", "sockjs-client", "@stomp/stompjs"],
+            "polyfills": ["src/polyfills.ts"],
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
