@@ -1,6 +1,6 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiRutaService } from '../../../services/api-ruta.service';
 import { ApiUsuarioService } from '../../../services/api-usuario.service';
@@ -18,13 +18,14 @@ import {
 @Component({
   selector: 'app-agenda-admin',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe],
+  imports: [FormsModule, DatePipe],
   templateUrl: './agenda-admin.html',
 })
 export class AgendaAdmin implements OnInit {
   private apiRuta = inject(ApiRutaService);
   private apiUsuario = inject(ApiUsuarioService);
   private toast = inject(ToastService);
+  private zone = inject(NgZone);
 
   protected readonly CONFIRMACION_LABELS = CONFIRMACION_LABELS;
   protected readonly ESTADO_RUTA_LABELS = ESTADO_RUTA_LABELS;
@@ -54,43 +55,82 @@ export class AgendaAdmin implements OnInit {
     return this.agenda().filter((r) => r.confirmacionRepartidor === f);
   });
 
-  protected nombreRepartidor = computed(() => {
-    const id = this.repartidorSeleccionado();
-    if (id == null) return '';
-    return this.repartidores().find((r) => r.id === id)?.nombreCompleto ?? '';
+  protected dias = computed(() => {
+    const start = new Date(this.desde() + 'T00:00:00');
+    const end = new Date(this.hasta() + 'T00:00:00');
+    const days: Date[] = [];
+    const maxDays = 60; // Para evitar loops infinitos si el usuario pone un rango inmenso
+    let count = 0;
+    for (let d = new Date(start); d <= end && count < maxDays; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+      count++;
+    }
+    return days;
+  });
+
+  protected matrizAgenda = computed(() => {
+    const f = this.filtroConfirmacion();
+    let ag = this.agenda();
+    if (f) ag = ag.filter((r) => r.confirmacionRepartidor === f);
+
+    let repList = this.repartidores();
+    const sel = this.repartidorSeleccionado();
+    if (sel !== null) {
+       repList = repList.filter(r => r.id === sel);
+    }
+    
+    return repList.map(rep => {
+       const rowDays = this.dias().map(d => {
+          const iso = d.toISOString().slice(0, 10);
+          const turnos = ag.filter(r => r.repartidorId === rep.id && r.fechaReparto === iso);
+          return { fechaObj: d, iso, turnos };
+       });
+       return { repartidor: rep, dias: rowDays };
+    });
   });
 
   ngOnInit(): void {
-    void this.cargarRepartidores();
+    void this.cargarRepartidores().then(() => {
+      this.zone.run(() => void this.cargarAgenda());
+    });
   }
 
   protected async cargarRepartidores(): Promise<void> {
     this.cargandoRepartidores.set(true);
     try {
       const todos = await this.apiUsuario.listarTodos();
-      this.repartidores.set(todos.filter((u) => u.rol === 'REPARTIDOR' && u.activo));
+      this.zone.run(() => {
+        this.repartidores.set(todos.filter((u) => u.rol === 'REPARTIDOR' && u.activo));
+      });
     } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudieron cargar los repartidores.'));
+      this.zone.run(() => {
+        this.toast.error(this.msgError(e, 'No se pudieron cargar los repartidores.'));
+      });
     } finally {
-      this.cargandoRepartidores.set(false);
+      this.zone.run(() => this.cargandoRepartidores.set(false));
     }
   }
 
   protected async cargarAgenda(): Promise<void> {
     const id = this.repartidorSeleccionado();
-    if (id == null) return;
     this.cargando.set(true);
     this.agenda.set([]);
     try {
-      this.agenda.set(await this.apiRuta.obtenerAgenda(id, this.desde(), this.hasta()));
+      let data;
+      if (id == null) {
+        data = await this.apiRuta.obtenerAgendaGlobal(this.desde(), this.hasta());
+      } else {
+        data = await this.apiRuta.obtenerAgenda(id, this.desde(), this.hasta());
+      }
+      this.zone.run(() => this.agenda.set(data));
     } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudo cargar la agenda.'));
+      this.zone.run(() => this.toast.error(this.msgError(e, 'No se pudo cargar la agenda.')));
     } finally {
-      this.cargando.set(false);
+      this.zone.run(() => this.cargando.set(false));
     }
   }
 
-  protected seleccionarRepartidor(id: number): void {
+  protected seleccionarRepartidor(id: number | null): void {
     this.repartidorSeleccionado.set(id);
     void this.cargarAgenda();
   }
@@ -114,15 +154,17 @@ export class AgendaAdmin implements OnInit {
         notasAdmin: this.notasDraft().trim() || null,
       };
       const actualizado = await this.apiRuta.actualizarNotasAdmin(rutaId, req);
-      this.agenda.update((prev) =>
-        prev.map((r) => (r.rutaId === actualizado.rutaId ? actualizado : r)),
-      );
-      this.toast.exito('Notas guardadas correctamente.');
-      this.cancelarEdicionNotas();
+      this.zone.run(() => {
+        this.agenda.update((prev) =>
+          prev.map((r) => (r.rutaId === actualizado.rutaId ? actualizado : r)),
+        );
+        this.toast.exito('Notas guardadas correctamente.');
+        this.cancelarEdicionNotas();
+      });
     } catch (e) {
-      this.toast.error(this.msgError(e, 'No se pudieron guardar las notas.'));
+      this.zone.run(() => this.toast.error(this.msgError(e, 'No se pudieron guardar las notas.')));
     } finally {
-      this.guardandoNotas.set(false);
+      this.zone.run(() => this.guardandoNotas.set(false));
     }
   }
 
@@ -149,13 +191,7 @@ export class AgendaAdmin implements OnInit {
     }
   }
 
-  protected km(m?: number | null): number {
-    return m != null ? m / 1000 : 0;
-  }
-
-  protected minutos(s?: number | null): number {
-    return s != null ? Math.round(s / 60) : 0;
-  }
+  // ── Helpers de presentación ───────────────────────────────────────
 
   private isoHoy(): string {
     return new Date().toISOString().slice(0, 10);

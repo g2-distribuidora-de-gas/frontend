@@ -1,5 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, NgZone, inject } from '@angular/core';
 import { Client, IMessage } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { AgendaNotificacion } from '../models/ruta.model';
 
 /**
@@ -17,6 +18,7 @@ export class AgendaWsService {
   readonly notificaciones = signal<AgendaNotificacion[]>([]);
 
   private client: Client | null = null;
+  private zone = inject(NgZone);
 
   /**
    * Inicia la conexión STOMP usando WebSocket nativo.
@@ -25,22 +27,24 @@ export class AgendaWsService {
   conectar(token: string): void {
     if (this.client?.active) return;
 
-    const wsUrl = this.buildWsUrl();
+    const wsUrl = this.buildWsUrl(token);
 
     this.client = new Client({
-      brokerURL: wsUrl,
+      webSocketFactory: () => new SockJS(wsUrl) as unknown as WebSocket,
       connectHeaders: {
         Authorization: `Bearer ${token}`,
       },
       reconnectDelay: 5000,
       onConnect: () => {
         this.client?.subscribe('/user/queue/agenda', (msg: IMessage) => {
-          try {
-            const notif = JSON.parse(msg.body) as AgendaNotificacion;
-            this.notificaciones.update((prev) => [notif, ...prev]);
-          } catch {
-            // mensaje malformado — ignorar
-          }
+          this.zone.run(() => {
+            try {
+              const notif = JSON.parse(msg.body) as AgendaNotificacion;
+              this.notificaciones.update((prev) => [notif, ...prev]);
+            } catch {
+              // mensaje malformado — ignorar
+            }
+          });
         });
       },
       onStompError: (frame) => {
@@ -63,12 +67,10 @@ export class AgendaWsService {
   }
 
   /**
-   * Construye la URL WebSocket adaptando el protocolo HTTP/HTTPS
-   * al correspondiente WS/WSS, apuntando al endpoint del backend.
+   * Construye la URL para SockJS, pasando el token por query param.
    */
-  private buildWsUrl(): string {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // En desarrollo el proxy de Angular redirige /ws → localhost:8080/ws
-    return `${proto}//${window.location.host}/ws`;
+  private buildWsUrl(token: string): string {
+    const proto = window.location.protocol; // http: o https:
+    return `${proto}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
   }
 }

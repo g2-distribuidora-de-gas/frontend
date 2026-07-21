@@ -12,7 +12,7 @@
         >{{ mostrarFormEditar() ? 'Cancelar' : 'Editar' }}</button>
       }
       <button
-        (click)="mostrarFormGarrafa.set(!mostrarFormGarrafa())"
+        (click)="toggleFormGarrafa()"
         class="rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-brand-600"
       >{{ mostrarFormGarrafa() ? 'Cancelar' : '+ Nuevo tipo' }}</button>
     </div>
@@ -35,44 +35,53 @@
         @if (garrafaEnEdicion(); as g) {
           <div class="grid gap-3 sm:grid-cols-3">
             <label class="block text-sm">
-              <span class="mb-1 block font-medium text-brand-700">Descripción</span>
+              <span class="mb-1 block font-medium text-brand-700">Descripción *</span>
               <input
                 type="text"
+                [maxlength]="MAX_DESCRIPCION"
                 [ngModel]="editDescripcion()"
-                (ngModelChange)="editDescripcion.set($event)"
+                (ngModelChange)="campoEdicion('descripcion', $event)"
                 class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
               />
             </label>
             <label class="block text-sm">
-              <span class="mb-1 block font-medium text-brand-700">Capacidad (kg)</span>
+              <span class="mb-1 block font-medium text-brand-700">Capacidad (kg) *</span>
               <input
                 type="number"
                 min="1"
                 step="1"
+                [max]="MAX_CAPACIDAD_KG"
                 inputmode="numeric"
                 (keydown)="bloquearNoEnteros($event)"
                 [ngModel]="editCapacidad()"
-                (ngModelChange)="editCapacidad.set($event)"
+                (ngModelChange)="campoEdicion('capacidadKg', $event)"
                 class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
               />
             </label>
             <label class="block text-sm">
-              <span class="mb-1 block font-medium text-brand-700">Precio</span>
+              <span class="mb-1 block font-medium text-brand-700">Precio *</span>
               <input
                 type="number"
                 min="0"
-                inputmode="numeric"
+                step="0.01"
+                [max]="MAX_PRECIO"
+                inputmode="decimal"
+                (keydown)="bloquearNegativos($event)"
                 [ngModel]="editPrecio()"
-                (ngModelChange)="editPrecio.set($event)"
+                (ngModelChange)="campoEdicion('precio', $event)"
                 class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
               />
             </label>
           </div>
           <p class="text-xs text-brand-700/60">Código: <b>{{ g.codigo }}</b> (no editable)</p>
+          @if (tocadaEdicion() && errorEdicion(); as err) {
+            <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{{ err }}</p>
+          }
           <button
             (click)="guardarEdicion()"
-            class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
-          >Guardar cambios</button>
+            [disabled]="!puedeGuardarEdicion()"
+            class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+          >{{ guardando() ? 'Guardando…' : 'Guardar cambios' }}</button>
         }
       </div>
     }
@@ -82,6 +91,7 @@
         <input
           type="text"
           placeholder="Código * (ej: 10KG)"
+          maxlength="30"
           [ngModel]="nueva().codigo"
           (ngModelChange)="campo('codigo', $event)"
           class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm uppercase outline-none placeholder:text-brand-700/40 focus:border-brand-400"
@@ -89,6 +99,7 @@
         <input
           type="text"
           placeholder="Descripción *"
+          [maxlength]="MAX_DESCRIPCION"
           [ngModel]="nueva().descripcion"
           (ngModelChange)="campo('descripcion', $event)"
           class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
@@ -97,6 +108,7 @@
           type="number"
           min="1"
           step="1"
+          [max]="MAX_CAPACIDAD_KG"
           placeholder="Capacidad kg *"
           inputmode="numeric"
           (keydown)="bloquearNoEnteros($event)"
@@ -107,16 +119,23 @@
         <input
           type="number"
           min="0"
+          step="0.01"
+          [max]="MAX_PRECIO"
           placeholder="Precio *"
-          inputmode="numeric"
+          inputmode="decimal"
+          (keydown)="bloquearNegativos($event)"
           [ngModel]="nueva().precio"
           (ngModelChange)="campo('precio', $event)"
           class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400"
         />
+        @if (tocadaAlta() && errorAlta(); as err) {
+          <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 sm:col-span-4">{{ err }}</p>
+        }
         <button
           (click)="guardarGarrafa()"
-          class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 sm:col-span-4"
-        >Guardar tipo</button>
+          [disabled]="!puedeGuardarAlta()"
+          class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40 sm:col-span-4"
+        >{{ guardando() ? 'Guardando…' : 'Guardar tipo' }}</button>
       </div>
     }
 

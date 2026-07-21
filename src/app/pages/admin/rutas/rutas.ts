@@ -1,11 +1,14 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { ApiUsuarioService } from '../../../services/api-usuario.service';
 import { ApiPedidoService } from '../../../services/api-pedido.service';
 import { ApiRutaService } from '../../../services/api-ruta.service';
 import { ToastService } from '../../../services/toast.service';
+import { AuthService } from '../../../services/auth.service';
+import { RealtimeService } from '../../../services/realtime.service';
 import { UsuarioResponse } from '../../../models/usuario.model';
 import { PedidoResponse } from '../../../models/pedido.model';
 import {
@@ -15,17 +18,28 @@ import {
   ESTADO_ENTREGA_LABELS,
 } from '../../../models/ruta.model';
 import { MapaRuta } from '../../../components/mapa-ruta/mapa-ruta';
+import { MapaRutaLive } from '../../../components/mapa-ruta-live/mapa-ruta-live';
 
 @Component({
   selector: 'app-admin-rutas',
-  imports: [FormsModule, DecimalPipe, MapaRuta],
+  imports: [FormsModule, DecimalPipe, MapaRuta, MapaRutaLive],
   templateUrl: './rutas.html',
 })
-export class RutasAdmin {
+export class RutasAdmin implements OnDestroy {
   private apiUsuario = inject(ApiUsuarioService);
   private apiPedido = inject(ApiPedidoService);
   private apiRuta = inject(ApiRutaService);
   private toast = inject(ToastService);
+  private auth = inject(AuthService);
+  private realtime = inject(RealtimeService);
+
+  protected stompConectado = signal(this.realtime.estaConectado());
+  private subConexion?: Subscription;
+  private subErrores?: Subscription;
+  protected rutaLiveHabilitada = computed(() => {
+    const e = this.rutaCreada()?.estado;
+    return e === 'PLANIFICADA' || e === 'EN_CURSO';
+  });
 
   protected repartidores = signal<UsuarioResponse[]>([]);
   protected usuarios = signal<UsuarioResponse[]>([]);
@@ -39,6 +53,8 @@ export class RutasAdmin {
   protected readonly ESTADO_ENTREGA_LABELS = ESTADO_ENTREGA_LABELS;
 
   protected repartidorId = signal<number | null>(null);
+  protected hoy = signal<string>(new Date().toISOString().slice(0, 10));
+  protected fechaReparto = signal<string>(this.hoy());
   protected seleccionados = signal<Set<number>>(new Set());
   protected busqueda = signal('');
   protected rutaCreada = signal<RutaResponse | null>(null);
@@ -62,6 +78,23 @@ export class RutasAdmin {
 
   constructor() {
     void this.cargar();
+    const token = this.auth.token;
+    if (token) {
+      if (!this.realtime.estaConectado()) {
+        this.realtime.conectar(token);
+      }
+    }
+    this.subConexion = this.realtime.conectado$.subscribe((v) =>
+      this.stompConectado.set(v),
+    );
+    this.subErrores = this.realtime.errores$.subscribe((err) =>
+      this.toast.error(`[${err.codigo}] ${err.mensaje}`),
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subConexion?.unsubscribe();
+    this.subErrores?.unsubscribe();
   }
 
   protected async cargar(): Promise<void> {
@@ -158,6 +191,7 @@ export class RutasAdmin {
       const ruta = await this.apiRuta.planificar({
         repartidorId,
         pedidosIds: [...this.seleccionados()],
+        fechaReparto: this.fechaReparto(),
       });
       this.rutaCreada.set(ruta);
       this.toast.exito('Ruta planificada correctamente con LocationIQ.');

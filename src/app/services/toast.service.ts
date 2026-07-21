@@ -27,6 +27,10 @@ export class ToastService {
     this.mostrar(mensaje, 'exito');
   }
 
+  info(mensaje: string): void {
+    this.mostrar(mensaje, 'info');
+  }
+
   cerrar(id: number): void {
     this.toasts.update((t) => t.filter((x) => x.id !== id));
   }

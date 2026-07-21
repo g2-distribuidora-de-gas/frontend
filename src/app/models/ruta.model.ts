@@ -64,6 +64,7 @@ export interface RutaResponse {
 export interface RutaPlanificarRequest {
   repartidorId: number;
   pedidosIds: number[];
+  fechaReparto?: string;
 }
 
 
@@ -152,6 +153,7 @@ export const CONFIRMACION_LABELS: Record<ConfirmacionRepartidor, string> = {
 /** Respuesta del endpoint GET /api/rutas/agenda/{repartidorId} */
 export interface AgendaRepartidorResponse {
   rutaId: number;
+  repartidorId: number;
   fechaReparto: string;
   estado: EstadoRuta;
   cantidadParadas: number;

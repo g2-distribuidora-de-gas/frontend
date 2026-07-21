@@ -82,6 +82,17 @@ export class ApiRutaService {
 
   // ── Agenda ─────────────────────────────────────────────────────────────
 
+  /** GET /api/rutas/agenda?desde=YYYY-MM-DD&hasta=YYYY-MM-DD */
+  async obtenerAgendaGlobal(
+    desde: string,
+    hasta: string,
+  ): Promise<AgendaRepartidorResponse[]> {
+    const params = new HttpParams().set('desde', desde).set('hasta', hasta);
+    return firstValueFrom(
+      this.http.get<AgendaRepartidorResponse[]>('/api/rutas/agenda', { params }),
+    );
+  }
+
   /** GET /api/rutas/agenda/{repartidorId}?desde=YYYY-MM-DD&hasta=YYYY-MM-DD */
   async obtenerAgenda(
     repartidorId: number,

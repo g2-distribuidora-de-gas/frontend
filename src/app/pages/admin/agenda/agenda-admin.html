@@ -22,10 +22,10 @@
         } @else {
           <select
             id="select-repartidor"
-            (change)="seleccionarRepartidor(+$any($event.target).value)"
+            (change)="seleccionarRepartidor($any($event.target).value === 'null' ? null : +$any($event.target).value)"
             class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-brand-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
           >
-            <option value="">— Elegir repartidor —</option>
+            <option value="null" [selected]="repartidorSeleccionado() === null">Todos los repartidores (Vista Global)</option>
             @for (r of repartidores(); track r.id) {
               <option [value]="r.id" [selected]="repartidorSeleccionado() === r.id">
                 {{ r.nombreCompleto }}
@@ -110,126 +110,113 @@
         <div class="h-36 animate-pulse rounded-2xl bg-brand-100"></div>
       }
     </div>
-  } @else if (repartidorSeleccionado() == null) {
-    <div class="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-12 text-center">
-      <p class="text-3xl">👆</p>
-      <p class="mt-2 text-sm font-medium text-brand-800">Seleccioná un repartidor para ver su agenda.</p>
-    </div>
   } @else if (agendaFiltrada().length === 0) {
     <div class="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-12 text-center">
       <p class="text-3xl">📭</p>
       <p class="mt-2 text-sm font-medium text-brand-800">
-        {{ nombreRepartidor() }} no tiene rutas agendadas en este período.
+        No hay rutas agendadas en este período con los filtros actuales.
       </p>
     </div>
   } @else {
-    <div class="space-y-3">
-      @for (r of agendaFiltrada(); track r.rutaId) {
-        <div class="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm transition-all hover:shadow-md">
-
-          <!-- Cabecera de la tarjeta -->
-          <div class="flex items-start justify-between gap-3 p-4">
-            <div>
-              <p class="text-base font-bold capitalize text-brand-900">
-                {{ r.fechaReparto | date:'EEEE d \'de\' MMMM y':'':'es' }}
-              </p>
-              <p class="text-xs text-brand-700/60">Ruta #{{ r.rutaId }}</p>
-            </div>
-            <div class="flex shrink-0 flex-col items-end gap-1.5">
-              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="claseEstado(r.estado)">
-                {{ ESTADO_RUTA_LABELS[r.estado] }}
-              </span>
-              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="claseConfirmacion(r.confirmacionRepartidor)">
-                {{ CONFIRMACION_LABELS[r.confirmacionRepartidor] }}
-              </span>
-            </div>
+    <div class="overflow-x-auto pb-4 custom-scrollbar">
+      <div class="min-w-max bg-white rounded-2xl border border-brand-200 shadow-sm">
+        
+        <!-- Headers (Dias) -->
+        <div class="flex border-b border-brand-200 bg-brand-50 rounded-t-2xl">
+          <!-- Columna fija Repartidor -->
+          <div class="w-56 shrink-0 border-r border-brand-200 p-3 font-bold text-brand-800 text-sm flex items-center justify-center uppercase tracking-wide">
+            Repartidor
           </div>
-
-          <!-- Estadísticas -->
-          <div class="grid grid-cols-3 divide-x divide-brand-100 border-t border-brand-100 bg-brand-50/40">
-            <div class="px-4 py-3 text-center">
-              <p class="text-lg font-bold text-brand-800">{{ r.cantidadParadas }}</p>
-              <p class="text-[10px] uppercase tracking-wide text-brand-700/50">Paradas</p>
-            </div>
-            <div class="px-4 py-3 text-center">
-              <p class="text-lg font-bold text-brand-800">{{ km(r.distanciaTotalM) | number:'1.1-1' }}</p>
-              <p class="text-[10px] uppercase tracking-wide text-brand-700/50">km aprox.</p>
-            </div>
-            <div class="px-4 py-3 text-center">
-              <p class="text-lg font-bold text-brand-800">{{ minutos(r.duracionTotalS) }}</p>
-              <p class="text-[10px] uppercase tracking-wide text-brand-700/50">min aprox.</p>
-            </div>
-          </div>
-
-          <!-- Progreso de entrega (si ya empezó) -->
-          @if (r.estado !== 'PLANIFICADA') {
-            <div class="border-t border-brand-100 px-4 py-3">
-              <div class="mb-1 flex justify-between text-xs text-brand-700/60">
-                <span>Entregas</span>
-                <span>{{ r.paradasEntregadas }} entregadas · {{ r.paradasFallidas }} fallidas · {{ r.paradasPendientes }} pendientes</span>
-              </div>
-              <div class="h-1.5 w-full overflow-hidden rounded-full bg-brand-100">
-                <div
-                  class="h-full rounded-full bg-brand-500 transition-all"
-                  [style.width.%]="r.cantidadParadas > 0 ? ((r.paradasEntregadas + r.paradasFallidas) / r.cantidadParadas * 100) : 0"
-                ></div>
-              </div>
+          <!-- Columnas de días -->
+          @for (d of dias(); track d.getTime()) {
+            <div class="w-72 shrink-0 border-r border-brand-200 p-3 text-center last:border-r-0">
+              <p class="text-sm font-bold capitalize text-brand-900">{{ d | date:'EEEE':'':'es' }}</p>
+              <p class="text-xs text-brand-600">{{ d | date:'dd MMM y':'':'es' }}</p>
             </div>
           }
+        </div>
 
-          <!-- Notas del admin -->
-          <div class="border-t border-brand-100 p-4">
-            @if (editandoNotasId() === r.rutaId) {
-              <!-- Modo edición -->
-              <label class="mb-1 block text-xs font-semibold text-brand-700/80" [for]="'notas-' + r.rutaId">
-                Notas para {{ nombreRepartidor() }}
-              </label>
-              <textarea
-                [id]="'notas-' + r.rutaId"
-                rows="3"
-                [ngModel]="notasDraft()"
-                (ngModelChange)="notasDraft.set($event)"
-                placeholder="Ej: Llevar cambio. El cliente del punto 3 pide llegar antes de las 10."
-                class="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
-              ></textarea>
-              <div class="mt-2 flex justify-end gap-2">
-                <button (click)="cancelarEdicionNotas()" [disabled]="guardandoNotas()"
-                  class="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50">
-                  Cancelar
-                </button>
-                <button
-                  [id]="'btn-guardar-notas-' + r.rutaId"
-                  (click)="guardarNotas(r.rutaId)"
-                  [disabled]="guardandoNotas()"
-                  class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
-                >
-                  {{ guardandoNotas() ? 'Guardando…' : 'Guardar notas' }}
-                </button>
+        <!-- Filas (Repartidores) -->
+        @for (row of matrizAgenda(); track row.repartidor.id) {
+          <div class="flex border-b border-brand-100 last:border-0 hover:bg-brand-50/30 transition-colors group">
+            
+            <!-- Nombre Repartidor -->
+            <div class="w-56 shrink-0 border-r border-brand-200 p-4 flex items-center bg-white sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+              <div class="flex items-center gap-3">
+                <div class="h-10 w-10 shrink-0 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 border border-brand-200">
+                  {{ row.repartidor.nombreCompleto.substring(0, 2).toUpperCase() }}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-bold text-brand-900 truncate" title="{{ row.repartidor.nombreCompleto }}">{{ row.repartidor.nombreCompleto }}</p>
+                  <p class="text-[10px] uppercase tracking-wide text-brand-500 font-semibold">ID: {{ row.repartidor.id }}</p>
+                </div>
               </div>
-            } @else {
-              <!-- Modo visualización -->
-              <div class="flex items-start justify-between gap-2">
-                @if (r.notasAdmin) {
-                  <div class="flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2.5 flex-1">
-                    <span class="text-sm">📌</span>
-                    <p class="text-xs text-blue-700">{{ r.notasAdmin }}</p>
-                  </div>
+            </div>
+
+            <!-- Celdas (Turnos) -->
+            @for (dia of row.dias; track dia.iso) {
+              <div class="w-72 shrink-0 border-r border-brand-200 p-3 relative bg-brand-50/20 last:border-r-0 group-hover:bg-brand-50/40 transition-colors">
+                @if (dia.turnos.length === 0) {
+                   <!-- Empty state cell -->
+                   <div class="h-full w-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-default">
+                      <span class="text-[10px] font-medium tracking-widest uppercase text-brand-300">Libre</span>
+                   </div>
                 } @else {
-                  <p class="text-xs text-brand-700/40 italic">Sin notas para el repartidor.</p>
+                  <div class="space-y-3">
+                  @for (r of dia.turnos; track r.rutaId) {
+                    <!-- Tarjeta de turno minimizada -->
+                    <div class="rounded-xl border bg-white p-3 shadow-sm transition-all hover:shadow-md relative overflow-hidden" 
+                         [class]="r.confirmacionRepartidor === 'PENDIENTE' ? 'border-amber-300 ring-1 ring-amber-200' : 'border-brand-200'">
+                       
+                       <div class="flex items-start justify-between gap-1 mb-2">
+                          <p class="text-xs font-black text-brand-900">Ruta #{{ r.rutaId }}</p>
+                          <span class="rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide uppercase" 
+                                [class]="claseConfirmacion(r.confirmacionRepartidor)">
+                             {{ CONFIRMACION_LABELS[r.confirmacionRepartidor] }}
+                          </span>
+                       </div>
+                       
+                       <div class="flex justify-between items-center text-[10px] font-medium text-brand-600 mb-2 bg-brand-50 rounded-lg px-2 py-1">
+                          <span>{{ ESTADO_RUTA_LABELS[r.estado] }}</span>
+                          <span class="flex items-center gap-1">📍 {{ r.cantidadParadas }}</span>
+                       </div>
+
+                       <!-- Notas resumidas -->
+                       @if (r.notasAdmin) {
+                          <div class="bg-blue-50/50 text-blue-700 p-2 rounded-lg text-xs leading-snug mb-3 border border-blue-100" title="{{r.notasAdmin}}">
+                             <span class="font-bold">📌 Nota:</span> {{ r.notasAdmin }}
+                          </div>
+                       }
+
+                       <!-- Formulario editar notas si está activo -->
+                       @if (editandoNotasId() === r.rutaId) {
+                          <div class="mt-2 pt-2 border-t border-brand-100 animate-in fade-in slide-in-from-top-1">
+                             <label class="block text-[10px] font-bold text-brand-700 mb-1">Editar notas:</label>
+                             <textarea rows="2" [ngModel]="notasDraft()" (ngModelChange)="notasDraft.set($event)" 
+                               class="w-full rounded-lg border border-brand-200 text-xs p-2 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-200 placeholder:text-brand-300"
+                               placeholder="Escribí una nota..."></textarea>
+                             <div class="flex gap-2 mt-2">
+                                <button (click)="cancelarEdicionNotas()" class="flex-1 rounded-lg bg-brand-100 py-1.5 text-[10px] font-bold text-brand-700 hover:bg-brand-200 transition">Cancelar</button>
+                                <button (click)="guardarNotas(r.rutaId)" class="flex-1 rounded-lg bg-brand-600 text-white py-1.5 text-[10px] font-bold hover:bg-brand-700 transition" [disabled]="guardandoNotas()">
+                                  {{ guardandoNotas() ? '...' : 'Guardar' }}
+                                </button>
+                             </div>
+                          </div>
+                       } @else {
+                         <button (click)="iniciarEdicionNotas(r)" 
+                            class="w-full text-center rounded-lg border border-brand-200 py-1.5 text-[11px] font-semibold text-brand-600 hover:bg-brand-50 hover:text-brand-800 transition-colors">
+                            ✏️ {{ r.notasAdmin ? 'Editar' : 'Agregar' }} notas
+                         </button>
+                       }
+                    </div>
+                  }
+                  </div>
                 }
-                <button
-                  [id]="'btn-editar-notas-' + r.rutaId"
-                  (click)="iniciarEdicionNotas(r)"
-                  class="shrink-0 rounded-lg border border-brand-200 px-2.5 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-50"
-                >
-                  ✏️ {{ r.notasAdmin ? 'Editar' : 'Agregar' }} notas
-                </button>
               </div>
             }
           </div>
-
-        </div>
-      }
+        }
+      </div>
     </div>
   }
 

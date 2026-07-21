@@ -23,6 +23,7 @@
     "leaflet": "^1.9.4",
     "rxdb": "^17.3.0",
     "rxjs": "~7.8.0",
+    "sockjs-client": "^1.6.1",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
@@ -32,6 +33,7 @@
     "@tailwindcss/postcss": "^4.1.0",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^20.17.19",
+    "@types/sockjs-client": "^1.5.4",
     "jsdom": "^28.0.0",
     "postcss": "^8.5.0",
     "prettier": "^3.8.1",

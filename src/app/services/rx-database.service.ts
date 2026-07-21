@@ -17,6 +17,7 @@ import { pedidoSchema, PedidoDocType } from '../schemas/pedido.schema';
 import { rutaSchema, RutaDocType } from '../schemas/ruta.schema';
 import { eventoParadaSchema, EventoParadaDocType } from '../schemas/evento-parada.schema';
 import { eventoRutaSchema, EventoRutaDocType } from '../schemas/evento-ruta.schema';
+import { agendaSchema, AgendaDocType } from '../schemas/agenda.schema';
 import { environment } from '../../environments/environment';
 
 
@@ -44,6 +45,7 @@ export type AppCollections = {
   rutas: RxCollection<RutaDocType>;
   eventosParada: RxCollection<EventoParadaDocType>;
   eventosRuta: RxCollection<EventoRutaDocType>;
+  agenda: RxCollection<AgendaDocType>;
 };
 
 export type AppDatabase = RxDatabase<AppCollections>;
@@ -85,6 +87,10 @@ export class RxDatabaseService {
 
   get eventosRuta(): RxCollection<EventoRutaDocType> {
     return this._db.eventosRuta;
+  }
+
+  get agenda(): RxCollection<AgendaDocType> {
+    return this._db.agenda;
   }
 
   /**
@@ -147,6 +153,7 @@ export class RxDatabaseService {
       rutas: { schema: rutaSchema },
       eventosParada: { schema: eventoParadaSchema },
       eventosRuta: { schema: eventoRutaSchema },
+      agenda: { schema: agendaSchema },
     });
 
     console.log('[RxDatabaseService] Base de datos inicializada con colecciones:', Object.keys(this._db.collections));

@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+
+import { Component, computed, effect, inject, signal, OnDestroy, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
@@ -6,6 +7,7 @@ import { RepartoOfflineService } from '../../services/reparto-offline.service';
 import { ToastService } from '../../services/toast.service';
 import { ApiRutaService } from '../../services/api-ruta.service';
 import { AgendaWsService } from '../../services/agenda-ws.service';
+import { RxDatabaseService } from '../../services/rx-database.service';
 import {
   AgendaRepartidorResponse,
   ConfirmacionRepartidor,
@@ -16,6 +18,14 @@ import {
   ESTADO_RUTA_LABELS,
   RutaPedidoOffline,
 } from '../../models/ruta.model';
+
+
+import { Subscription } from 'rxjs';
+
+import { RealtimeService } from '../../services/realtime.service';
+import { TrackingRepartidorService } from '../../services/tracking-repartidor.service';
+
+
 import { ESTADO_LABELS } from '../../models/pedido.model';
 import { nombreGarrafa } from '../../models/garrafa.model';
 import { MapaRuta } from '../../components/mapa-ruta/mapa-ruta';
@@ -28,12 +38,16 @@ type Pestana = 'hoy' | 'agenda';
   imports: [DecimalPipe, DatePipe, FormsModule, MapaRuta, MapaVista],
   templateUrl: './reparto.html',
 })
-export class Reparto {
+export class Reparto implements OnDestroy {
   private auth = inject(AuthService);
   private reparto = inject(RepartoOfflineService);
   private toast = inject(ToastService);
   private apiRuta = inject(ApiRutaService);
   private agendaWs = inject(AgendaWsService);
+  private realtime = inject(RealtimeService);
+  private tracking = inject(TrackingRepartidorService);
+  private zone = inject(NgZone);
+  private dbService = inject(RxDatabaseService);
 
   protected ruta = this.reparto.ruta;
   protected pendientes = this.reparto.pendientes;
@@ -45,6 +59,19 @@ export class Reparto {
   protected seleccionadaId = signal<number | null>(null);
   protected paradaAFallar = signal<RutaPedidoOffline | null>(null);
   protected motivoFallo = signal('');
+
+
+  protected gpsSoportado = typeof navigator !== 'undefined' && typeof navigator.geolocation?.watchPosition === 'function';
+  protected gpsSecureContext =
+    typeof window === 'undefined' || window.isSecureContext === true;
+  protected gpsActivo = signal(false);
+  protected gpsPermiso = signal<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
+  protected gpsAviso = signal<string | null>(null);
+  protected stompConectado = signal(this.realtime.estaConectado());
+
+  private subErrores?: Subscription;
+  private subConexion?: Subscription;
+
   protected paradaModal = signal<RutaPedidoOffline | null>(null);
 
   protected readonly ESTADO_ENTREGA_LABELS = ESTADO_ENTREGA_LABELS;
@@ -76,6 +103,11 @@ export class Reparto {
   protected puedeFinalizar = computed(() => this.estadoRuta() === 'EN_CURSO');
   protected enCurso = computed(() => this.estadoRuta() === 'EN_CURSO');
 
+  protected puedeTracking = computed(() => {
+    const e = this.estadoRuta();
+    return e === 'PLANIFICADA' || e === 'EN_CURSO';
+  });
+
   protected paradaModalActual = computed(() => {
     const m = this.paradaModal();
     if (!m) return null;
@@ -86,8 +118,17 @@ export class Reparto {
   protected pestanaActiva = signal<Pestana>('hoy');
   protected agenda = signal<AgendaRepartidorResponse[]>([]);
   protected cargandoAgenda = signal(false);
+  protected agendaOffline = signal(false);
   protected rutaAConfirmar = signal<AgendaRepartidorResponse | null>(null);
   protected motivoRechazo = signal('');
+
+  protected agendaPendiente = computed(() =>
+    this.agenda().filter((r) => r.confirmacionRepartidor === 'PENDIENTE')
+  );
+  
+  protected agendaConfirmada = computed(() =>
+    this.agenda().filter((r) => r.confirmacionRepartidor !== 'PENDIENTE')
+  );
 
   protected pendientesConfirmacion = computed(
     () => this.agenda().filter((r) => r.confirmacionRepartidor === 'PENDIENTE').length,
@@ -95,6 +136,7 @@ export class Reparto {
 
   constructor() {
     void this.cargar();
+
     void this.cargarAgenda();
 
     // Conectar WS de agenda cuando el token esté disponible
@@ -112,6 +154,45 @@ export class Reparto {
         void this.cargarAgenda();
       }
     });
+
+    void this.chequearPermisoGeo();
+    this.subConexion = this.realtime.conectado$.subscribe((v) =>
+      this.stompConectado.set(v),
+    );
+    this.subErrores = this.realtime.errores$.subscribe((err) =>
+      this.toast.error(`[${err.codigo}] ${err.mensaje}`),
+    );
+  }
+
+  private async chequearPermisoGeo(): Promise<void> {
+    const estado = await this.tracking.consultarPermiso();
+    this.gpsPermiso.set(estado);
+    if (estado === 'denied') {
+      this.gpsAviso.set(
+        'El permiso de ubicación está bloqueado en este navegador. Habilitalo desde el candado de la barra de direcciones para poder transmitir tu posición.',
+      );
+    } else if (!this.gpsSecureContext) {
+      this.gpsAviso.set(
+        'La geolocalización solo funciona en HTTPS o en http://localhost:4200/. Abrí la app desde esa URL.',
+      );
+    }
+  }
+
+  protected async reintentarPermisoGeo(): Promise<void> {
+    if (this.gpsPermiso() !== 'denied') {
+      this.toast.info('Hacé click en "Iniciar tracking GPS" para volver a pedir el permiso.');
+      return;
+    }
+    this.gpsAviso.set(
+      'Andá al candado de la barra de direcciones del navegador, elegí "Permitir ubicación" para este sitio y volvé a hacer click en "Iniciar tracking GPS".',
+    );
+    this.toast.info('Cuando lo habilites, volvé a tocar el botón de tracking.');
+  }
+
+  ngOnDestroy(): void {
+    void this.detenerTracking();
+    this.subErrores?.unsubscribe();
+    this.subConexion?.unsubscribe();
   }
 
   // ── Ciclo de vida ──────────────────────────────────────────────────
@@ -182,6 +263,9 @@ export class Reparto {
     try {
       await this.reparto.cambiarEstadoRuta(ruta.id, estado);
       this.toast.exito(mensajeOk);
+      if ((estado === 'COMPLETADA' || estado === 'CANCELADA') && this.gpsActivo()) {
+        await this.detenerTracking();
+      }
     } catch {
       this.toast.error('No se pudo registrar el cambio de estado de la ruta.');
     } finally {
@@ -189,6 +273,66 @@ export class Reparto {
     }
   }
 
+  protected async iniciarTracking(): Promise<void> {
+    const ruta = this.ruta();
+    if (!ruta || !this.gpsSoportado) {
+      this.gpsAviso.set(
+        this.gpsSoportado
+          ? 'Aún no tenés una ruta activa asignada. Pedile al administrador que te cree una.'
+          : 'Tu navegador no expone la API de geolocalización.',
+      );
+      return;
+    }
+    const token = this.auth.token;
+    if (!token) {
+      this.toast.error('Sesión sin token. Volvé a iniciar sesión.');
+      return;
+    }
+    if (!this.stompConectado()) {
+      this.realtime.conectar(token);
+    }
+    this.gpsAviso.set(
+      'El navegador te va a preguntar si permitís acceder a tu ubicación. Aceptá para empezar.',
+    );
+
+    const resultado = await this.tracking.iniciar(ruta.id);
+    if (resultado.estado === 'ok') {
+      this.gpsPermiso.set(resultado.permiso ?? 'granted');
+      this.gpsAviso.set(null);
+      this.gpsActivo.set(true);
+      this.toast.exito(resultado.mensaje);
+      return;
+    }
+
+    if (resultado.permiso) this.gpsPermiso.set(resultado.permiso);
+
+    if (
+      resultado.estado === 'permiso-denegado' ||
+      resultado.estado === 'sin-permisos-navegador'
+    ) {
+      this.gpsAviso.set(resultado.mensaje);
+    } else if (
+      resultado.estado === 'no-secure-context' ||
+      resultado.estado === 'no-soportado'
+    ) {
+      this.gpsAviso.set(resultado.mensaje);
+    } else if (
+      resultado.estado === 'posicion-no-disponible' ||
+      resultado.estado === 'timeout'
+    ) {
+      this.gpsAviso.set(resultado.mensaje);
+    } else {
+      this.toast.error(resultado.mensaje);
+    }
+  }
+
+  protected async detenerTracking(): Promise<void> {
+    await this.tracking.detener();
+    this.gpsActivo.set(false);
+    this.toast.info('Tracking GPS detenido.');
+  }
+
+  // ─── Estado de las paradas ────────────────────────────────────────
   protected pedirMotivoFallo(p: RutaPedidoOffline): void {
     if (this.procesando()) return;
     if (!this.enCurso()) {
@@ -243,14 +387,50 @@ export class Reparto {
     const uid = this.auth.userId();
     if (uid == null) return;
     this.cargandoAgenda.set(true);
+
+    try {
+      if (this.dbService.db) {
+        const docs = await this.dbService.db.agenda.find().exec();
+        const offlineData = docs.map(d => ({ ...d.toJSON(), rutaId: Number(d.rutaId) }));
+        // Ordenar por fecha ASC y luego rutaId DESC (los IDs más nuevos son probablemente más urgentes si tienen misma fecha)
+        offlineData.sort((a, b) => a.fechaReparto.localeCompare(b.fechaReparto) || b.rutaId - a.rutaId);
+        this.zone.run(() => this.agenda.set(offlineData as AgendaRepartidorResponse[]));
+      }
+    } catch {}
+
     try {
       const hoy = this.isoHoy();
       const en30 = this.isoEn(30);
-      this.agenda.set(await this.apiRuta.obtenerAgenda(uid, hoy, en30));
+      const data = await this.apiRuta.obtenerAgenda(uid, hoy, en30);
+      
+      this.zone.run(() => {
+        data.sort((a, b) => a.fechaReparto.localeCompare(b.fechaReparto) || b.rutaId - a.rutaId);
+        this.agenda.set(data);
+        this.agendaOffline.set(false);
+      });
+
+      try {
+        if (this.dbService.db) {
+          const agendaIds = data.map(r => r.rutaId.toString());
+          // Fetch existing to remove manually if $nin throws (Dexie sometimes struggles with $nin without index)
+          const allDocs = await this.dbService.db.agenda.find().exec();
+          for (const doc of allDocs) {
+            if (!agendaIds.includes(doc.rutaId)) {
+              await doc.remove();
+            }
+          }
+          for (const r of data) {
+            await this.dbService.db.agenda.upsert({ ...r, rutaId: r.rutaId.toString() });
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Error sincronizando agenda en RxDB:', dbErr);
+      }
+
     } catch {
-      // Error silencioso — la agenda no bloquea el reparto
+      this.zone.run(() => this.agendaOffline.set(true));
     } finally {
-      this.cargandoAgenda.set(false);
+      this.zone.run(() => this.cargandoAgenda.set(false));
     }
   }
 
@@ -280,18 +460,28 @@ export class Reparto {
     this.procesando.set(true);
     try {
       const actualizado = await this.apiRuta.confirmarTurno(ruta.rutaId, body);
-      this.agenda.update((prev) =>
-        prev.map((r) => (r.rutaId === actualizado.rutaId ? actualizado : r)),
-      );
-      this.toast.exito(
-        confirmacion === 'CONFIRMADO' ? '✓ Turno confirmado.' : 'Turno rechazado.',
-      );
-      this.rutaAConfirmar.set(null);
+      this.zone.run(() => {
+        this.agenda.update((prev) =>
+          prev.map((r) => (r.rutaId === actualizado.rutaId ? actualizado : r)),
+        );
+        this.toast.exito(
+          confirmacion === 'CONFIRMADO' ? '✓ Turno confirmado.' : 'Turno rechazado.',
+        );
+        this.rutaAConfirmar.set(null);
+      });
+      if (this.dbService.db) {
+        await this.dbService.db.agenda.upsert({ ...actualizado, rutaId: actualizado.rutaId.toString() });
+      }
     } catch {
-      this.toast.error('No se pudo registrar la respuesta. Intentá de nuevo.');
+      this.zone.run(() => this.toast.error('No se pudo registrar la respuesta. Intentá de nuevo.'));
     } finally {
-      this.procesando.set(false);
+      this.zone.run(() => this.procesando.set(false));
     }
+  }
+
+  protected irAlReparto(): void {
+    this.pestanaActiva.set('hoy');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // ── Helpers de presentación ────────────────────────────────────────

@@ -83,8 +83,110 @@ src/app/
 │   ├── replication.service.ts # Motor de replicación Push/Pull automático
 │   ├── api-*.service.ts       # Comunicación HTTP directa con Spring Boot
 │   ├── catalogo.service.ts    # Capa de dominio (Usuarios/Garrafas)
+│   ├── realtime.service.ts    # Cliente STOMP/SockJS para tracking GPS en vivo
+│   ├── tracking-repartidor.service.ts # WatchPosition + throttle 1s
 │   └── pedido.service.ts      # Capa de dominio (Transacciones offline)
 └── pages/
     ├── toma-pedido/        # Vista para cargar nuevos pedidos
-    └── pedidos/            # Listado de estados y pedidos registrados
+    ├── pedidos/            # Listado de estados y pedidos registrados
+    ├── reparto/           # Vista del repartidor con botón "Iniciar tracking GPS"
+    └── admin/rutas/       # Planificación de rutas + overlay de tracking en vivo
 ```
+
+---
+
+## Tracking GPS en vivo (STOMP / WebSocket)
+
+El panel admin puede ver la posición del repartidor en vivo sobre el mapa, y la
+app del repartidor publica su GPS desde el navegador usando la **Geolocation API**.
+El transporte es **STOMP sobre SockJS** contra el endpoint `/ws?token=<jwt>` del
+backend (ver `backend/docs/WEBSOCKETS_FRONTEND.md` para el contrato completo).
+
+### Stack
+
+- `@stomp/stompjs` v7 — cliente STOMP.
+- `sockjs-client` v1.6 — transporte SockJS con fallback xhr-streaming/long-polling.
+- Leaflet (OSM) — render del mapa con marker en vivo.
+
+### Servicios nuevos
+
+- `RealtimeService` (`src/app/services/realtime.service.ts`):
+  singleton que envuelve `@stomp/stompjs`. Métodos: `conectar(jwt)`,
+  `desconectar()`, `suscribirseAPosiciones(rutaId, cb)`,
+  `suscribirseAEventos(rutaId, cb)`, `suscribirseAErrores(cb)`,
+  `publicarPosicion(rutaId, pos)`. Exposes: `conectado$`, `errores$`.
+  Reconexión automática cada 5s, heartbeat 10s, throttle de 1 mensaje/seg
+  para `publicarPosicion`, re-suscripción de los topics tras `onConnect`.
+- `TrackingRepartidorService` (`src/app/services/tracking-repartidor.service.ts`):
+  orquesta `navigator.geolocation.watchPosition` y reenvía cada muestra al
+  `RealtimeService.publicarPosicion`. Adapta `enableHighAccuracy` y `maximumAge`
+  según `document.visibilityState` (precisión alta en foreground, baja en
+  background) para cuidar la batería.
+- `realtime.tokens.ts`: factories por defecto (`STOMP_WEBSOCKET_FACTORY` →
+  `SockJS`, `STOMP_CLIENT_FACTORY` → `Client` con la config de heartbeat).
+  En tests se reemplazan por un `ClienteStub` sin tocar SockJS ni stompjs.
+
+### Componentes nuevos
+
+- `MapaRutaLive` (`src/app/components/mapa-ruta-live/`): dibuja la ruta
+  planificada + un marker azul en vivo con la posición del repartidor y un
+  trail (polyline) del recorrido. Muestra una pastilla con la edad de la
+  última muestra (alerta si pasa 30s sin updates) y el código de error
+  si llega un `ErrorWsDto`.
+
+### Dónde se usa
+
+- **Repartidor** → `pages/reparto/`: botón **"Iniciar tracking GPS"** visible
+  sólo cuando la ruta está en `PLANIFICADA` o `EN_CURSO`. Al activarlo se
+  conecta al STOMP y empieza a publicar lat/lng/heading/velocidad. Al
+  finalizar o cancelar la ruta, se detiene y se desuscribe.
+- **Admin / Super Admin** → `pages/admin/rutas/`: en la card de la ruta recién
+  planificada (o en cualquier ruta expandible en estado activo), se renderiza
+  el `<app-mapa-ruta-live>` con la suscripción al topic
+  `/topic/rutas/{id}/posiciones`.
+- **Header global** (`app.html`): pill adicional `STOMP conectado / sin WS`
+  junto al `En línea / Sin conexión`, alimentado por `realtime.conectado$`.
+
+### Cómo probarlo con dos navegadores
+
+1. Levantar backend y frontend (`npm start` + Spring Boot).
+2. **Pestaña 1** — login como **REPARTIDOR**, abrir `/reparto`. Iniciar
+   una ruta, pulsar **Iniciar tracking GPS** y permitir geolocalización.
+3. **Pestaña 2** — login como **ADMIN** o **SUPER_ADMIN**, abrir
+   `/admin/rutas`, planificar una ruta o expandir una ya activa.
+4. Verificar que:
+   - El marker azul aparece y se mueve siguiendo al repartidor.
+   - Al cancelar/finalizar la ruta el marker desaparece.
+   - Si en `/reparto` se rechaza el permiso de geolocalización, sale un
+     toast y el botón queda inactivo.
+5. Para simular otro cliente publicando, se puede usar `wscat`/`websocat`
+   (ejemplo en `backend/docs/WEBSOCKETS_FRONTEND.md` §11).
+
+### Tests
+
+`npx ng test --watch=false` corre Vitest. El spec
+`src/app/services/realtime.service.spec.ts` mockea `Client` vía el token
+`STOMP_CLIENT_FACTORY` y cubre:
+
+- Creación del cliente STOMP y `activate()`.
+- `conectado$` emite `true` en `onConnect`, `false` en `onDisconnect` /
+  `onWebSocketClose`.
+- `publicarPosicion` aplica throttle de 1s por ruta y adjunta `rutaId` al
+  payload.
+- `desconectar` desuscribe y desactiva; reconectar con el mismo token no
+  recrea el cliente.
+- `suscribirseAErrores` parsea y propaga `ErrorWsDto`.
+
+### Garantías de no romper funcionalidades vigentes
+
+- Los interceptores HTTP (`auth`, `baseUrl`, `api-response`) **no se tocan**.
+  El WS usa su propio token desde `AuthService.token`.
+- `ngsw-config.json` no cambia: `@stomp/stompjs` y `sockjs-client` entran por
+  la regla `app` (`/*.js` prefetch) del service worker.
+- `RxDatabaseService`, `ReplicationService` y `RepartoOfflineService` siguen
+  manejando el flujo offline. El WS se activa sólo con `navigator.onLine`.
+- El componente `mapa-ruta` se mantiene intacto. `mapa-ruta-live` es
+  paralelo, se compone aditivamente en las cards de `/admin/rutas`.
+- `provideAppInitializer` no se altera, por lo que la inicialización de
+  RxDB y replicación se ejecuta igual que antes.
+
