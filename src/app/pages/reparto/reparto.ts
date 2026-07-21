@@ -36,7 +36,11 @@ export class Reparto implements OnDestroy {
   protected motivoFallo = signal('');
 
   protected gpsSoportado = typeof navigator !== 'undefined' && typeof navigator.geolocation?.watchPosition === 'function';
+  protected gpsSecureContext =
+    typeof window === 'undefined' || window.isSecureContext === true;
   protected gpsActivo = signal(false);
+  protected gpsPermiso = signal<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
+  protected gpsAviso = signal<string | null>(null);
   protected stompConectado = signal(this.realtime.estaConectado());
 
   private subErrores?: Subscription;
@@ -85,12 +89,38 @@ export class Reparto implements OnDestroy {
 
   constructor() {
     void this.cargar();
+    void this.chequearPermisoGeo();
     this.subConexion = this.realtime.conectado$.subscribe((v) =>
       this.stompConectado.set(v),
     );
     this.subErrores = this.realtime.errores$.subscribe((err) =>
       this.toast.error(`[${err.codigo}] ${err.mensaje}`),
     );
+  }
+
+  private async chequearPermisoGeo(): Promise<void> {
+    const estado = await this.tracking.consultarPermiso();
+    this.gpsPermiso.set(estado);
+    if (estado === 'denied') {
+      this.gpsAviso.set(
+        'El permiso de ubicación está bloqueado en este navegador. Habilitalo desde el candado de la barra de direcciones para poder transmitir tu posición.',
+      );
+    } else if (!this.gpsSecureContext) {
+      this.gpsAviso.set(
+        'La geolocalización solo funciona en HTTPS o en http://localhost:4200/. Abrí la app desde esa URL.',
+      );
+    }
+  }
+
+  protected async reintentarPermisoGeo(): Promise<void> {
+    if (this.gpsPermiso() !== 'denied') {
+      this.toast.info('Hacé click en "Iniciar tracking GPS" para volver a pedir el permiso.');
+      return;
+    }
+    this.gpsAviso.set(
+      'Andá al candado de la barra de direcciones del navegador, elegí "Permitir ubicación" para este sitio y volvé a hacer click en "Iniciar tracking GPS".',
+    );
+    this.toast.info('Cuando lo habilites, volvé a tocar el botón de tracking.');
   }
 
   ngOnDestroy(): void {
@@ -177,7 +207,14 @@ export class Reparto implements OnDestroy {
 
   protected async iniciarTracking(): Promise<void> {
     const ruta = this.ruta();
-    if (!ruta || !this.gpsSoportado) return;
+    if (!ruta || !this.gpsSoportado) {
+      this.gpsAviso.set(
+        this.gpsSoportado
+          ? 'Aún no tenés una ruta activa asignada. Pedile al administrador que te cree una.'
+          : 'Tu navegador no expone la API de geolocalización.',
+      );
+      return;
+    }
     const token = this.auth.token;
     if (!token) {
       this.toast.error('Sesión sin token. Volvé a iniciar sesión.');
@@ -186,21 +223,45 @@ export class Reparto implements OnDestroy {
     if (!this.stompConectado()) {
       this.realtime.conectar(token);
     }
+    this.gpsAviso.set(
+      'El navegador te va a preguntar si permitís acceder a tu ubicación. Aceptá para empezar.',
+    );
 
-    const ok = this.tracking.iniciar(ruta.id);
-    if (!ok) {
-      this.toast.error(
-        'No se pudo iniciar el tracking GPS. Revisá los permisos de ubicación.',
-      );
+    const resultado = await this.tracking.iniciar(ruta.id);
+    if (resultado.estado === 'ok') {
+      this.gpsPermiso.set(resultado.permiso ?? 'granted');
+      this.gpsAviso.set(null);
+      this.gpsActivo.set(true);
+      this.toast.exito(resultado.mensaje);
       return;
     }
-    this.gpsActivo.set(true);
-    this.toast.exito('Tracking GPS iniciado. Tu posición se publica en vivo.');
+
+    if (resultado.permiso) this.gpsPermiso.set(resultado.permiso);
+
+    if (
+      resultado.estado === 'permiso-denegado' ||
+      resultado.estado === 'sin-permisos-navegador'
+    ) {
+      this.gpsAviso.set(resultado.mensaje);
+    } else if (
+      resultado.estado === 'no-secure-context' ||
+      resultado.estado === 'no-soportado'
+    ) {
+      this.gpsAviso.set(resultado.mensaje);
+    } else if (
+      resultado.estado === 'posicion-no-disponible' ||
+      resultado.estado === 'timeout'
+    ) {
+      this.gpsAviso.set(resultado.mensaje);
+    } else {
+      this.toast.error(resultado.mensaje);
+    }
   }
 
   protected async detenerTracking(): Promise<void> {
     await this.tracking.detener();
     this.gpsActivo.set(false);
+    this.toast.info('Tracking GPS detenido.');
   }
 
   // ─── Estado de las paradas ────────────────────────────────────────
