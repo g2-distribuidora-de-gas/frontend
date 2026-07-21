@@ -3,6 +3,7 @@ import { combineLatest, Subscription } from 'rxjs';
 import { RxDatabaseService } from './rx-database.service';
 import { ApiRutaService } from './api-ruta.service';
 import { ToastService } from './toast.service';
+import { RealtimeService } from './realtime.service';
 import { EstadoEntrega, EstadoRuta, ParadaDetalleOffline, RutaClienteResponse, RutaOfflineView,
   RutaPedidoOffline, RutaResponse, SincronizacionParadaItem} from '../models/ruta.model';
 import { EstadoPedido } from '../models/pedido.model';
@@ -16,6 +17,7 @@ export class RepartoOfflineService {
   private rxDb = inject(RxDatabaseService);
   private api = inject(ApiRutaService);
   private toast = inject(ToastService);
+  private realtime = inject(RealtimeService);
 
   private readonly _ruta = signal<RutaOfflineView | null>(null);
   private readonly _pendientes = signal(0);
@@ -52,6 +54,7 @@ export class RepartoOfflineService {
       window.removeEventListener('online', this.onlineListener);
       this.onlineListener = undefined;
     }
+    void this.realtime.desconectar();
     this.iniciada = false;
     this.repartidorId = null;
     this._ruta.set(null);

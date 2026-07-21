@@ -12,9 +12,24 @@
             <span
               class="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:flex"
               [class]="online() ? 'bg-white/20 text-white' : 'bg-brand-900 text-brand-100'"
+              title="Estado de la red"
             >
               <span class="h-2 w-2 rounded-full" [class]="online() ? 'bg-green-300' : 'bg-red-400'"></span>
               {{ online() ? 'En línea' : 'Sin conexión' }}
+            </span>
+
+            <span
+              class="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:flex"
+              [class]="stomp()
+                ? 'bg-blue-500/30 text-white'
+                : 'bg-brand-900/80 text-brand-100'"
+              title="Estado de la conexión STOMP con el backend"
+            >
+              <span
+                class="h-2 w-2 rounded-full"
+                [class]="stomp() ? 'bg-blue-200 animate-pulse' : 'bg-amber-300'"
+              ></span>
+              STOMP {{ stomp() ? 'conectado' : 'sin WS' }}
             </span>
 
             @if (auth.esPreventista() || auth.esRepartidor()) {
