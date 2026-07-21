@@ -1,5 +1,5 @@
-import { Injectable, NgZone, inject } from '@angular/core';
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import { InjectionToken, Injectable, NgZone, inject } from '@angular/core';
+import { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { BehaviorSubject, Subject } from 'rxjs';
 
@@ -24,16 +24,55 @@ interface SuscripcionRegistrada {
   callbacks: Array<(payload: unknown) => void>;
 }
 
+export interface IStompEventFrame {
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface StompClientLike {
+  readonly active: boolean;
+  onConnect: ((frame: unknown) => void) | null;
+  onDisconnect: ((frame: unknown) => void) | null;
+  onWebSocketClose: ((event: unknown) => void) | null;
+  onStompError: ((frame: IStompEventFrame) => void) | null;
+  onWebSocketError: ((event: unknown) => void) | null;
+  activate(): void;
+  deactivate(): Promise<void> | void;
+  subscribe(
+    destination: string,
+    cb: (msg: IMessage | { body: string }) => void,
+  ): StompSubscription;
+  publish(params: {
+    destination: string;
+    body: string;
+    headers?: Record<string, string | number>;
+  }): void;
+}
+
+export type StompWebSocketFactory = () => WebSocket | unknown;
+
+export const STOMP_WEBSOCKET_FACTORY = new InjectionToken<StompWebSocketFactory>(
+  'STOMP_WEBSOCKET_FACTORY',
+);
+
+export const STOMP_CLIENT_FACTORY = new InjectionToken<
+  (config: {
+    wsSocket: StompWebSocketFactory;
+  }) => StompClientLike
+>('STOMP_CLIENT_FACTORY');
+
 const POSICION_THROTTLE_MS = 1000;
 
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
   private readonly zone = inject(NgZone);
+  private readonly socketFactory = inject(STOMP_WEBSOCKET_FACTORY);
+  private readonly clientFactory = inject(STOMP_CLIENT_FACTORY);
 
   readonly conectado$ = new BehaviorSubject<boolean>(false);
   readonly errores$ = new Subject<ErrorWsDto>();
 
-  private client?: Client;
+  private client?: StompClientLike;
   private readonly subs = new Map<string, StompSubscription>();
   private readonly pendientes = new Map<string, SuscripcionRegistrada>();
   private readonly ultimoEnvioPorRuta = new Map<number, number>();
@@ -58,16 +97,16 @@ export class RealtimeService {
     }
 
     this.tokenActual = token;
-    const wsBase = environment.wsUrl;
-    const wsUrlConToken = `${wsBase}?token=${encodeURIComponent(token)}`;
+    const wsUrlConToken = `${environment.wsUrl}?token=${encodeURIComponent(
+      token,
+    )}`;
 
-    const client = new Client({
-      webSocketFactory: () =>
-        new SockJS(wsUrlConToken) as unknown as WebSocket,
-      reconnectDelay: 5000,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
-      debug: () => undefined,
+    const client = this.clientFactory({
+      wsSocket: () => {
+        const s = this.socketFactory();
+        if (s) return s as WebSocket;
+        return new SockJS(wsUrlConToken) as unknown as WebSocket;
+      },
     });
 
     client.onConnect = () => {
@@ -82,7 +121,7 @@ export class RealtimeService {
     client.onStompError = (frame) => {
       console.warn(
         '[RealtimeService] STOMP error:',
-        frame.headers?.['message'] ?? frame.body,
+        frame?.headers?.['message'] ?? frame?.body,
       );
     };
     client.onWebSocketError = (event) => {
@@ -134,7 +173,7 @@ export class RealtimeService {
     const client = this.client;
     if (!client?.active) return null;
 
-    const dispatch = (msg: IMessage) => {
+    const dispatch = (msg: { body: string }) => {
       let parsed: unknown;
       try {
         parsed = JSON.parse(msg.body);

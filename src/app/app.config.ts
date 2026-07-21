@@ -11,6 +11,14 @@ import { RxDatabaseService } from './services/rx-database.service';
 import { ReplicationService } from './services/replication.service';
 import { RepartoOfflineService } from './services/reparto-offline.service';
 import { AuthService } from './services/auth.service';
+import {
+  STOMP_CLIENT_FACTORY,
+  STOMP_WEBSOCKET_FACTORY,
+} from './services/realtime.service';
+import {
+  defaultStompClientFactory,
+  defaultStompWebSocketFactory,
+} from './services/realtime.tokens';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -24,6 +32,15 @@ export const appConfig: ApplicationConfig = {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:100000',
     }),
+
+    {
+      provide: STOMP_WEBSOCKET_FACTORY,
+      useValue: defaultStompWebSocketFactory,
+    },
+    {
+      provide: STOMP_CLIENT_FACTORY,
+      useValue: defaultStompClientFactory,
+    },
 
     provideAppInitializer(async () => {
       const dbService = inject(RxDatabaseService);
