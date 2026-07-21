@@ -1,7 +1,21 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import {ActualizarParadaRequest, DeliveryReadOnlyResponse, EstadoEntrega, EstadoRuta, RutaPlanificarRequest, RutaResponse, SincronizacionParadasRequest, SincronizacionParadasResponse, SincronizacionRutasRequest, SincronizacionRutasResponse} from '../models/ruta.model';
+import {
+  ActualizarNotasAdminRequest,
+  ActualizarParadaRequest,
+  AgendaRepartidorResponse,
+  ConfirmarTurnoRequest,
+  DeliveryReadOnlyResponse,
+  EstadoEntrega,
+  EstadoRuta,
+  RutaPlanificarRequest,
+  RutaResponse,
+  SincronizacionParadasRequest,
+  SincronizacionParadasResponse,
+  SincronizacionRutasRequest,
+  SincronizacionRutasResponse,
+} from '../models/ruta.model';
 
 
 @Injectable({ providedIn: 'root' })
@@ -16,6 +30,7 @@ export class ApiRutaService {
   async listarTodas(): Promise<RutaResponse[]> {
     return firstValueFrom(this.http.get<RutaResponse[]>('/api/rutas'));
   }
+
   async obtenerMiRutaActiva(repartidorId: number): Promise<RutaResponse> {
     return firstValueFrom(
       this.http.get<RutaResponse>(`/api/rutas/mis-rutas/${repartidorId}`),
@@ -62,6 +77,40 @@ export class ApiRutaService {
   ): Promise<SincronizacionRutasResponse> {
     return firstValueFrom(
       this.http.post<SincronizacionRutasResponse>('/api/sincronizar/rutas', request),
+    );
+  }
+
+  // ── Agenda ─────────────────────────────────────────────────────────────
+
+  /** GET /api/rutas/agenda/{repartidorId}?desde=YYYY-MM-DD&hasta=YYYY-MM-DD */
+  async obtenerAgenda(
+    repartidorId: number,
+    desde: string,
+    hasta: string,
+  ): Promise<AgendaRepartidorResponse[]> {
+    const params = new HttpParams().set('desde', desde).set('hasta', hasta);
+    return firstValueFrom(
+      this.http.get<AgendaRepartidorResponse[]>(`/api/rutas/agenda/${repartidorId}`, { params }),
+    );
+  }
+
+  /** PATCH /api/rutas/{rutaId}/confirmar — repartidor acepta o rechaza el turno */
+  async confirmarTurno(
+    rutaId: number,
+    request: ConfirmarTurnoRequest,
+  ): Promise<AgendaRepartidorResponse> {
+    return firstValueFrom(
+      this.http.patch<AgendaRepartidorResponse>(`/api/rutas/${rutaId}/confirmar`, request),
+    );
+  }
+
+  /** PATCH /api/rutas/{rutaId}/notas-admin — admin agrega/edita notas visibles al repartidor */
+  async actualizarNotasAdmin(
+    rutaId: number,
+    request: ActualizarNotasAdminRequest,
+  ): Promise<AgendaRepartidorResponse> {
+    return firstValueFrom(
+      this.http.patch<AgendaRepartidorResponse>(`/api/rutas/${rutaId}/notas-admin`, request),
     );
   }
 }

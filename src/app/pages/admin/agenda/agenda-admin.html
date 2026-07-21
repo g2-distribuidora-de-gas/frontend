@@ -1,0 +1,236 @@
+<div class="space-y-6">
+
+  <!-- Encabezado -->
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-brand-900">Agenda de Repartidores</h1>
+    <p class="mt-1 text-sm text-brand-700/70">
+      Consultá las rutas agendadas por repartidor, agregá notas y revisá el estado de confirmación.
+    </p>
+  </div>
+
+  <!-- Panel de filtros -->
+  <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+      <!-- Selector de repartidor -->
+      <div class="lg:col-span-2">
+        <label class="mb-1 block text-xs font-semibold text-brand-700/80" for="select-repartidor">
+          Repartidor
+        </label>
+        @if (cargandoRepartidores()) {
+          <div class="h-9 animate-pulse rounded-lg bg-brand-100"></div>
+        } @else {
+          <select
+            id="select-repartidor"
+            (change)="seleccionarRepartidor(+$any($event.target).value)"
+            class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-brand-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+          >
+            <option value="">— Elegir repartidor —</option>
+            @for (r of repartidores(); track r.id) {
+              <option [value]="r.id" [selected]="repartidorSeleccionado() === r.id">
+                {{ r.nombreCompleto }}
+              </option>
+            }
+          </select>
+        }
+      </div>
+
+      <!-- Fecha desde -->
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-brand-700/80" for="fecha-desde">
+          Desde
+        </label>
+        <input
+          id="fecha-desde"
+          type="date"
+          [ngModel]="desde()"
+          (ngModelChange)="desde.set($event)"
+          class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-brand-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+        />
+      </div>
+
+      <!-- Fecha hasta -->
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-brand-700/80" for="fecha-hasta">
+          Hasta
+        </label>
+        <input
+          id="fecha-hasta"
+          type="date"
+          [ngModel]="hasta()"
+          (ngModelChange)="hasta.set($event)"
+          class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-brand-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+        />
+      </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <!-- Botón buscar -->
+      <button
+        id="btn-buscar-agenda"
+        (click)="cargarAgenda()"
+        [disabled]="cargando() || repartidorSeleccionado() == null"
+        class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+      >
+        {{ cargando() ? 'Cargando…' : 'Ver agenda' }}
+      </button>
+
+      <!-- Filtro rápido por confirmación -->
+      @if (agenda().length > 0) {
+        <div class="flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 p-1">
+          <button (click)="filtroConfirmacion.set('')"
+            class="rounded px-2.5 py-1 text-xs font-semibold transition"
+            [class]="filtroConfirmacion() === '' ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-600'">
+            Todas
+          </button>
+          <button (click)="filtroConfirmacion.set('PENDIENTE')"
+            class="rounded px-2.5 py-1 text-xs font-semibold transition"
+            [class]="filtroConfirmacion() === 'PENDIENTE' ? 'bg-amber-400 text-white shadow-sm' : 'text-brand-600'">
+            Pendientes
+          </button>
+          <button (click)="filtroConfirmacion.set('CONFIRMADO')"
+            class="rounded px-2.5 py-1 text-xs font-semibold transition"
+            [class]="filtroConfirmacion() === 'CONFIRMADO' ? 'bg-green-500 text-white shadow-sm' : 'text-brand-600'">
+            Confirmadas
+          </button>
+          <button (click)="filtroConfirmacion.set('RECHAZADO')"
+            class="rounded px-2.5 py-1 text-xs font-semibold transition"
+            [class]="filtroConfirmacion() === 'RECHAZADO' ? 'bg-red-500 text-white shadow-sm' : 'text-brand-600'">
+            Rechazadas
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Resultados -->
+  @if (cargando()) {
+    <div class="space-y-3">
+      @for (_ of [1,2,3,4]; track $index) {
+        <div class="h-36 animate-pulse rounded-2xl bg-brand-100"></div>
+      }
+    </div>
+  } @else if (repartidorSeleccionado() == null) {
+    <div class="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-12 text-center">
+      <p class="text-3xl">👆</p>
+      <p class="mt-2 text-sm font-medium text-brand-800">Seleccioná un repartidor para ver su agenda.</p>
+    </div>
+  } @else if (agendaFiltrada().length === 0) {
+    <div class="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-12 text-center">
+      <p class="text-3xl">📭</p>
+      <p class="mt-2 text-sm font-medium text-brand-800">
+        {{ nombreRepartidor() }} no tiene rutas agendadas en este período.
+      </p>
+    </div>
+  } @else {
+    <div class="space-y-3">
+      @for (r of agendaFiltrada(); track r.rutaId) {
+        <div class="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm transition-all hover:shadow-md">
+
+          <!-- Cabecera de la tarjeta -->
+          <div class="flex items-start justify-between gap-3 p-4">
+            <div>
+              <p class="text-base font-bold capitalize text-brand-900">
+                {{ r.fechaReparto | date:'EEEE d \'de\' MMMM y':'':'es' }}
+              </p>
+              <p class="text-xs text-brand-700/60">Ruta #{{ r.rutaId }}</p>
+            </div>
+            <div class="flex shrink-0 flex-col items-end gap-1.5">
+              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="claseEstado(r.estado)">
+                {{ ESTADO_RUTA_LABELS[r.estado] }}
+              </span>
+              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="claseConfirmacion(r.confirmacionRepartidor)">
+                {{ CONFIRMACION_LABELS[r.confirmacionRepartidor] }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Estadísticas -->
+          <div class="grid grid-cols-3 divide-x divide-brand-100 border-t border-brand-100 bg-brand-50/40">
+            <div class="px-4 py-3 text-center">
+              <p class="text-lg font-bold text-brand-800">{{ r.cantidadParadas }}</p>
+              <p class="text-[10px] uppercase tracking-wide text-brand-700/50">Paradas</p>
+            </div>
+            <div class="px-4 py-3 text-center">
+              <p class="text-lg font-bold text-brand-800">{{ km(r.distanciaTotalM) | number:'1.1-1' }}</p>
+              <p class="text-[10px] uppercase tracking-wide text-brand-700/50">km aprox.</p>
+            </div>
+            <div class="px-4 py-3 text-center">
+              <p class="text-lg font-bold text-brand-800">{{ minutos(r.duracionTotalS) }}</p>
+              <p class="text-[10px] uppercase tracking-wide text-brand-700/50">min aprox.</p>
+            </div>
+          </div>
+
+          <!-- Progreso de entrega (si ya empezó) -->
+          @if (r.estado !== 'PLANIFICADA') {
+            <div class="border-t border-brand-100 px-4 py-3">
+              <div class="mb-1 flex justify-between text-xs text-brand-700/60">
+                <span>Entregas</span>
+                <span>{{ r.paradasEntregadas }} entregadas · {{ r.paradasFallidas }} fallidas · {{ r.paradasPendientes }} pendientes</span>
+              </div>
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-brand-100">
+                <div
+                  class="h-full rounded-full bg-brand-500 transition-all"
+                  [style.width.%]="r.cantidadParadas > 0 ? ((r.paradasEntregadas + r.paradasFallidas) / r.cantidadParadas * 100) : 0"
+                ></div>
+              </div>
+            </div>
+          }
+
+          <!-- Notas del admin -->
+          <div class="border-t border-brand-100 p-4">
+            @if (editandoNotasId() === r.rutaId) {
+              <!-- Modo edición -->
+              <label class="mb-1 block text-xs font-semibold text-brand-700/80" [for]="'notas-' + r.rutaId">
+                Notas para {{ nombreRepartidor() }}
+              </label>
+              <textarea
+                [id]="'notas-' + r.rutaId"
+                rows="3"
+                [ngModel]="notasDraft()"
+                (ngModelChange)="notasDraft.set($event)"
+                placeholder="Ej: Llevar cambio. El cliente del punto 3 pide llegar antes de las 10."
+                class="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-brand-700/40 focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+              ></textarea>
+              <div class="mt-2 flex justify-end gap-2">
+                <button (click)="cancelarEdicionNotas()" [disabled]="guardandoNotas()"
+                  class="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50">
+                  Cancelar
+                </button>
+                <button
+                  [id]="'btn-guardar-notas-' + r.rutaId"
+                  (click)="guardarNotas(r.rutaId)"
+                  [disabled]="guardandoNotas()"
+                  class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {{ guardandoNotas() ? 'Guardando…' : 'Guardar notas' }}
+                </button>
+              </div>
+            } @else {
+              <!-- Modo visualización -->
+              <div class="flex items-start justify-between gap-2">
+                @if (r.notasAdmin) {
+                  <div class="flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2.5 flex-1">
+                    <span class="text-sm">📌</span>
+                    <p class="text-xs text-blue-700">{{ r.notasAdmin }}</p>
+                  </div>
+                } @else {
+                  <p class="text-xs text-brand-700/40 italic">Sin notas para el repartidor.</p>
+                }
+                <button
+                  [id]="'btn-editar-notas-' + r.rutaId"
+                  (click)="iniciarEdicionNotas(r)"
+                  class="shrink-0 rounded-lg border border-brand-200 px-2.5 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-50"
+                >
+                  ✏️ {{ r.notasAdmin ? 'Editar' : 'Agregar' }} notas
+                </button>
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+    </div>
+  }
+
+</div>

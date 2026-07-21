@@ -138,3 +138,49 @@ export interface SincronizacionRutasResponse {
   procesados: { uuidOffline: string; rutaId: number }[];
   errores: { uuidOffline: string; rutaId: number; error: string }[];
 }
+
+// ── Agenda ─────────────────────────────────────────────────────────────────
+
+export type ConfirmacionRepartidor = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
+
+export const CONFIRMACION_LABELS: Record<ConfirmacionRepartidor, string> = {
+  PENDIENTE: 'Pendiente',
+  CONFIRMADO: 'Confirmado',
+  RECHAZADO: 'Rechazado',
+};
+
+/** Respuesta del endpoint GET /api/rutas/agenda/{repartidorId} */
+export interface AgendaRepartidorResponse {
+  rutaId: number;
+  fechaReparto: string;
+  estado: EstadoRuta;
+  cantidadParadas: number;
+  paradasEntregadas: number;
+  paradasFallidas: number;
+  paradasPendientes: number;
+  notasAdmin: string | null;
+  confirmacionRepartidor: ConfirmacionRepartidor;
+  distanciaTotalM: number | null;
+  duracionTotalS: number | null;
+}
+
+/** Body de PATCH /api/rutas/{rutaId}/confirmar */
+export interface ConfirmarTurnoRequest {
+  confirmacion: ConfirmacionRepartidor;
+  motivoRechazo?: string;
+}
+
+/** Body de PATCH /api/rutas/{rutaId}/notas-admin */
+export interface ActualizarNotasAdminRequest {
+  notasAdmin: string | null;
+}
+
+/** Payload que llega por WebSocket /user/queue/agenda */
+export interface AgendaNotificacion {
+  tipo: 'NUEVA_RUTA_ASIGNADA' | 'RUTA_CANCELADA' | 'NOTAS_ACTUALIZADAS';
+  rutaId: number;
+  fechaReparto: string;
+  repartidorId: number;
+  mensaje: string;
+  timestamp: string;
+}

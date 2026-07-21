@@ -69,6 +69,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/admin/rutas/rutas').then((m) => m.RutasAdmin),
     title: 'Planificar rutas | Distribuidora de Gas',
   },
+  {
+    path: 'admin/agenda',
+    canActivate: [roleGuard('ADMIN', 'SUPER_ADMIN')],
+    loadComponent: () => import('./pages/admin/agenda/agenda-admin').then((m) => m.AgendaAdmin),
+    title: 'Agenda repartidores | Distribuidora de Gas',
+  },
 
   { path: '**', redirectTo: '' },
 ];

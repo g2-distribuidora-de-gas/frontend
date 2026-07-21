@@ -71,6 +71,10 @@
                   routerLinkActive="bg-white text-brand-700 shadow-sm"
                   class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
                 >Rutas</a>
+                <a routerLink="/admin/agenda"
+                  routerLinkActive="bg-white text-brand-700 shadow-sm"
+                  class="rounded-full px-3 py-1.5 transition-colors hover:text-white"
+                >Agenda</a>
               </nav>
               <button
                 type="button"
@@ -138,6 +142,10 @@
               routerLinkActive="bg-white text-brand-700 shadow-sm"
               class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
             >Rutas</a>
+            <a routerLink="/admin/agenda" (click)="cerrarMenu()"
+              routerLinkActive="bg-white text-brand-700 shadow-sm"
+              class="rounded-lg px-3 py-2 text-brand-50 transition-colors hover:bg-brand-600/60"
+            >Agenda</a>
           </nav>
         }
       </div>
