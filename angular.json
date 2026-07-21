@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "allowedCommonJsDependencies": ["ajv", "ajv-formats", "leaflet"],
+            "allowedCommonJsDependencies": ["ajv", "ajv-formats", "leaflet", "sockjs-client"],
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
