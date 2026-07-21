@@ -44,7 +44,7 @@
             {{ km(r.distanciaTotalM) | number:'1.1-1' }} km · {{ minutos(r.duracionTotalS) }} min
           </span>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           @if (puedeIniciar()) {
             <button (click)="iniciarRuta()" [disabled]="procesando()"
               class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Iniciar reparto</button>
@@ -54,6 +54,28 @@
               class="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">Finalizar</button>
             <button (click)="cancelarRuta()" [disabled]="procesando()"
               class="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">Cancelar</button>
+          }
+          @if (gpsSoportado && puedeTracking()) {
+            @if (gpsActivo()) {
+              <button (click)="detenerTracking()"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                <span class="h-2 w-2 animate-pulse rounded-full bg-red-500"></span>
+                Detener tracking GPS
+              </button>
+              <span
+                class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+                [class.text-green-700]="stompConectado()"
+                [class.bg-green-50]="stompConectado()">
+                <span class="h-2 w-2 rounded-full" [class]="stompConectado() ? 'bg-green-500 animate-pulse' : 'bg-amber-500'"></span>
+                {{ stompConectado() ? 'WS conectado' : 'Conectando WS…' }}
+              </span>
+            } @else {
+              <button (click)="iniciarTracking()"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+                <span class="h-2 w-2 rounded-full bg-blue-500"></span>
+                Iniciar tracking GPS
+              </button>
+            }
           }
         </div>
       </div>

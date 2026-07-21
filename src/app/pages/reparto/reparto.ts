@@ -1,9 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { RepartoOfflineService } from '../../services/reparto-offline.service';
 import { ToastService } from '../../services/toast.service';
+import { RealtimeService } from '../../services/realtime.service';
+import { TrackingRepartidorService } from '../../services/tracking-repartidor.service';
 import {EstadoEntrega, ESTADO_ENTREGA_LABELS, ESTADO_RUTA_LABELS, RutaPedidoOffline} from '../../models/ruta.model';
 import { ESTADO_LABELS } from '../../models/pedido.model';
 import { nombreGarrafa } from '../../models/garrafa.model';
@@ -15,10 +18,12 @@ import { MapaVista } from '../../components/mapa-vista/mapa-vista';
   imports: [DecimalPipe, FormsModule, MapaRuta, MapaVista],
   templateUrl: './reparto.html',
 })
-export class Reparto {
+export class Reparto implements OnDestroy {
   private auth = inject(AuthService);
   private reparto = inject(RepartoOfflineService);
   private toast = inject(ToastService);
+  private realtime = inject(RealtimeService);
+  private tracking = inject(TrackingRepartidorService);
 
   protected ruta = this.reparto.ruta;
   protected pendientes = this.reparto.pendientes;
@@ -30,6 +35,12 @@ export class Reparto {
   protected paradaAFallar = signal<RutaPedidoOffline | null>(null);
   protected motivoFallo = signal('');
 
+  protected gpsSoportado = typeof navigator !== 'undefined' && typeof navigator.geolocation?.watchPosition === 'function';
+  protected gpsActivo = signal(false);
+  protected stompConectado = signal(this.realtime.estaConectado());
+
+  private subErrores?: Subscription;
+  private subConexion?: Subscription;
 
   protected paradaModal = signal<RutaPedidoOffline | null>(null);
 
@@ -61,6 +72,11 @@ export class Reparto {
   protected puedeFinalizar = computed(() => this.estadoRuta() === 'EN_CURSO');
   protected enCurso = computed(() => this.estadoRuta() === 'EN_CURSO');
 
+  protected puedeTracking = computed(() => {
+    const e = this.estadoRuta();
+    return e === 'PLANIFICADA' || e === 'EN_CURSO';
+  });
+
   protected paradaModalActual = computed(() => {
     const m = this.paradaModal();
     if (!m) return null;
@@ -69,6 +85,18 @@ export class Reparto {
 
   constructor() {
     void this.cargar();
+    this.subConexion = this.realtime.conectado$.subscribe((v) =>
+      this.stompConectado.set(v),
+    );
+    this.subErrores = this.realtime.errores$.subscribe((err) =>
+      this.toast.error(`[${err.codigo}] ${err.mensaje}`),
+    );
+  }
+
+  ngOnDestroy(): void {
+    void this.detenerTracking();
+    this.subErrores?.unsubscribe();
+    this.subConexion?.unsubscribe();
   }
 
   protected async cargar(): Promise<void> {
@@ -136,11 +164,43 @@ export class Reparto {
     try {
       await this.reparto.cambiarEstadoRuta(ruta.id, estado);
       this.toast.exito(mensajeOk);
+      if ((estado === 'COMPLETADA' || estado === 'CANCELADA') && this.gpsActivo()) {
+        await this.detenerTracking();
+      }
     } catch {
       this.toast.error('No se pudo registrar el cambio de estado de la ruta.');
     } finally {
       this.procesando.set(false);
     }
+  }
+
+
+  protected async iniciarTracking(): Promise<void> {
+    const ruta = this.ruta();
+    if (!ruta || !this.gpsSoportado) return;
+    const token = this.auth.token;
+    if (!token) {
+      this.toast.error('Sesión sin token. Volvé a iniciar sesión.');
+      return;
+    }
+    if (!this.stompConectado()) {
+      this.realtime.conectar(token);
+    }
+
+    const ok = this.tracking.iniciar(ruta.id);
+    if (!ok) {
+      this.toast.error(
+        'No se pudo iniciar el tracking GPS. Revisá los permisos de ubicación.',
+      );
+      return;
+    }
+    this.gpsActivo.set(true);
+    this.toast.exito('Tracking GPS iniciado. Tu posición se publica en vivo.');
+  }
+
+  protected async detenerTracking(): Promise<void> {
+    await this.tracking.detener();
+    this.gpsActivo.set(false);
   }
 
   // ─── Estado de las paradas ────────────────────────────────────────
