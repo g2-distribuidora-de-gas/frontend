@@ -1,6 +1,5 @@
 <div class="space-y-6">
 
-  <!-- Encabezado -->
   <div>
     <h1 class="text-2xl font-bold tracking-tight text-brand-900">Agenda de Repartidores</h1>
     <p class="mt-1 text-sm text-brand-700/70">
@@ -8,11 +7,9 @@
     </p>
   </div>
 
-  <!-- Panel de filtros -->
   <section class="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-      <!-- Selector de repartidor -->
       <div class="lg:col-span-2">
         <label class="mb-1 block text-xs font-semibold text-brand-700/80" for="select-repartidor">
           Repartidor
@@ -35,7 +32,6 @@
         }
       </div>
 
-      <!-- Fecha desde -->
       <div>
         <label class="mb-1 block text-xs font-semibold text-brand-700/80" for="fecha-desde">
           Desde
@@ -49,7 +45,6 @@
         />
       </div>
 
-      <!-- Fecha hasta -->
       <div>
         <label class="mb-1 block text-xs font-semibold text-brand-700/80" for="fecha-hasta">
           Hasta
@@ -65,7 +60,6 @@
     </div>
 
     <div class="mt-3 flex flex-wrap items-center gap-3">
-      <!-- Botón buscar -->
       <button
         id="btn-buscar-agenda"
         (click)="cargarAgenda()"
@@ -75,7 +69,6 @@
         {{ cargando() ? 'Cargando…' : 'Ver agenda' }}
       </button>
 
-      <!-- Filtro rápido por confirmación -->
       @if (agenda().length > 0) {
         <div class="flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 p-1">
           <button (click)="filtroConfirmacion.set('')"
@@ -103,7 +96,6 @@
     </div>
   </section>
 
-  <!-- Resultados -->
   @if (cargando()) {
     <div class="space-y-3">
       @for (_ of [1,2,3,4]; track $index) {
@@ -112,7 +104,6 @@
     </div>
   } @else if (agendaFiltrada().length === 0) {
     <div class="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-12 text-center">
-      <p class="text-3xl">📭</p>
       <p class="mt-2 text-sm font-medium text-brand-800">
         No hay rutas agendadas en este período con los filtros actuales.
       </p>
@@ -121,13 +112,11 @@
     <div class="overflow-x-auto pb-4 custom-scrollbar">
       <div class="min-w-max bg-white rounded-2xl border border-brand-200 shadow-sm">
         
-        <!-- Headers (Dias) -->
+
         <div class="flex border-b border-brand-200 bg-brand-50 rounded-t-2xl">
-          <!-- Columna fija Repartidor -->
           <div class="w-56 shrink-0 border-r border-brand-200 p-3 font-bold text-brand-800 text-sm flex items-center justify-center uppercase tracking-wide">
             Repartidor
           </div>
-          <!-- Columnas de días -->
           @for (d of dias(); track d.getTime()) {
             <div class="w-72 shrink-0 border-r border-brand-200 p-3 text-center last:border-r-0">
               <p class="text-sm font-bold capitalize text-brand-900">{{ d | date:'EEEE':'':'es' }}</p>
@@ -136,11 +125,9 @@
           }
         </div>
 
-        <!-- Filas (Repartidores) -->
         @for (row of matrizAgenda(); track row.repartidor.id) {
           <div class="flex border-b border-brand-100 last:border-0 hover:bg-brand-50/30 transition-colors group">
             
-            <!-- Nombre Repartidor -->
             <div class="w-56 shrink-0 border-r border-brand-200 p-4 flex items-center bg-white sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
               <div class="flex items-center gap-3">
                 <div class="h-10 w-10 shrink-0 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 border border-brand-200">
@@ -153,18 +140,15 @@
               </div>
             </div>
 
-            <!-- Celdas (Turnos) -->
             @for (dia of row.dias; track dia.iso) {
               <div class="w-72 shrink-0 border-r border-brand-200 p-3 relative bg-brand-50/20 last:border-r-0 group-hover:bg-brand-50/40 transition-colors">
                 @if (dia.turnos.length === 0) {
-                   <!-- Empty state cell -->
                    <div class="h-full w-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-default">
                       <span class="text-[10px] font-medium tracking-widest uppercase text-brand-300">Libre</span>
                    </div>
                 } @else {
                   <div class="space-y-3">
                   @for (r of dia.turnos; track r.rutaId) {
-                    <!-- Tarjeta de turno minimizada -->
                     <div class="rounded-xl border bg-white p-3 shadow-sm transition-all hover:shadow-md relative overflow-hidden" 
                          [class]="r.confirmacionRepartidor === 'PENDIENTE' ? 'border-amber-300 ring-1 ring-amber-200' : 'border-brand-200'">
                        
@@ -178,17 +162,14 @@
                        
                        <div class="flex justify-between items-center text-[10px] font-medium text-brand-600 mb-2 bg-brand-50 rounded-lg px-2 py-1">
                           <span>{{ ESTADO_RUTA_LABELS[r.estado] }}</span>
-                          <span class="flex items-center gap-1">📍 {{ r.cantidadParadas }}</span>
+                          <span class="flex items-center gap-1"> {{ r.cantidadParadas }}</span>
                        </div>
-
-                       <!-- Notas resumidas -->
                        @if (r.notasAdmin) {
                           <div class="bg-blue-50/50 text-blue-700 p-2 rounded-lg text-xs leading-snug mb-3 border border-blue-100" title="{{r.notasAdmin}}">
-                             <span class="font-bold">📌 Nota:</span> {{ r.notasAdmin }}
+                             <span class="font-bold"> Nota:</span> {{ r.notasAdmin }}
                           </div>
                        }
 
-                       <!-- Formulario editar notas si está activo -->
                        @if (editandoNotasId() === r.rutaId) {
                           <div class="mt-2 pt-2 border-t border-brand-100 animate-in fade-in slide-in-from-top-1">
                              <label class="block text-[10px] font-bold text-brand-700 mb-1">Editar notas:</label>

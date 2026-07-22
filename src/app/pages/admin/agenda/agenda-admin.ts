@@ -37,16 +37,13 @@ export class AgendaAdmin implements OnInit {
   protected cargando = signal(false);
   protected cargandoRepartidores = signal(true);
 
-  // Rango de fechas (por defecto: hoy + 30 días)
   protected desde = signal(this.isoHoy());
   protected hasta = signal(this.isoEn(30));
 
-  // Edición inline de notas
   protected editandoNotasId = signal<number | null>(null);
   protected notasDraft = signal('');
   protected guardandoNotas = signal(false);
 
-  // Filtros visuales
   protected filtroConfirmacion = signal<ConfirmacionRepartidor | ''>('');
 
   protected agendaFiltrada = computed(() => {
@@ -59,7 +56,7 @@ export class AgendaAdmin implements OnInit {
     const start = new Date(this.desde() + 'T00:00:00');
     const end = new Date(this.hasta() + 'T00:00:00');
     const days: Date[] = [];
-    const maxDays = 60; // Para evitar loops infinitos si el usuario pone un rango inmenso
+    const maxDays = 60; 
     let count = 0;
     for (let d = new Date(start); d <= end && count < maxDays; d.setDate(d.getDate() + 1)) {
       days.push(new Date(d));
@@ -135,8 +132,6 @@ export class AgendaAdmin implements OnInit {
     void this.cargarAgenda();
   }
 
-  // ── Edición de notas ─────────────────────────────────────────────
-
   protected iniciarEdicionNotas(r: AgendaRepartidorResponse): void {
     this.editandoNotasId.set(r.rutaId);
     this.notasDraft.set(r.notasAdmin ?? '');
@@ -168,8 +163,6 @@ export class AgendaAdmin implements OnInit {
     }
   }
 
-  // ── Helpers de presentación ───────────────────────────────────────
-
   protected claseConfirmacion(c: ConfirmacionRepartidor): string {
     switch (c) {
       case 'CONFIRMADO':
@@ -191,7 +184,6 @@ export class AgendaAdmin implements OnInit {
     }
   }
 
-  // ── Helpers de presentación ───────────────────────────────────────
 
   private isoHoy(): string {
     return new Date().toISOString().slice(0, 10);
